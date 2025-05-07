@@ -555,7 +555,7 @@ def main():
         """)
 
     st.markdown("---")
-    st.caption("Quizify Streamlit App - Powered by AI")
+    st.caption("Quizify - Developed by Somanath Reddy")
 
 if __name__ == '__main__':
     main()
