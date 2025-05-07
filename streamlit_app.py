@@ -3,7 +3,8 @@ import streamlit as st
 import os
 import json
 import re
-
+from google import genai
+from dotenv import load_dotenv
 # --- Page Config (Must be the first Streamlit command) ---
 st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
 
@@ -11,8 +12,6 @@ st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sideba
 
 # Attempt to import google.generativeai, but handle if not available or API key is missing
 try:
-    from google import genai
-    from dotenv import load_dotenv
 
     load_dotenv()
     GOOGLE_API_KEY = "AIzaSyDnJVHu0aa6v_0cAdOS9wawadO1EX7RRwM"
