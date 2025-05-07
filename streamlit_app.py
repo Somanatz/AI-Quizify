@@ -22,8 +22,8 @@ try:
     GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 
     if GOOGLE_API_KEY:
-        genai_module.configure(api_key=GOOGLE_API_KEY)
-        genai = genai_module # Assign to global genai
+        client = genai.configure(api_key=GOOGLE_API_KEY)
+         # Assign to global genai
     else:
         api_key_warning_message = "GOOGLE_API_KEY not found. AI generation will use placeholders."
         # genai remains None
@@ -59,7 +59,7 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
             ]
         }
 
-    model = genai.GenerativeModel('gemini-pro')
+    model = 'gemini-2.0-flash'
 
     type_map = {
         'mcq': 'Multiple Choice (MCQ)',
@@ -115,10 +115,7 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
     """
 
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(temperature=0.7)
-        )
+        response = client.models.generate_content(model=model, contents=prompt)
         raw_text = response.text
         try:
             generated_data = json.loads(raw_text)
