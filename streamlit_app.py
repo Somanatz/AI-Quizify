@@ -22,7 +22,7 @@ try:
     GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 
     if GOOGLE_API_KEY:
-        client = genai.configure(api_key=GOOGLE_API_KEY)
+        client = genai.Client(api_key=GOOGLE_API_KEY)
          # Assign to global genai
     else:
         api_key_warning_message = "GOOGLE_API_KEY not found. AI generation will use placeholders."
