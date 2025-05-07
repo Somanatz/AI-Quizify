@@ -1,0 +1,15 @@
+{
+  "name": "quizify-django",
+  "version": "1.0.0",
+  "description": "Quizify Django Project (Placeholder package.json)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "django",
+    "quiz"
+  ],
+  "author": "",
+  "license": "ISC"
+}

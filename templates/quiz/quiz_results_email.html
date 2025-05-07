@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Results: {{ quiz_topic }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #0056b3;
+        }
+        h1 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            font-size: 1.8em;
+        }
+        h2 {
+            font-size: 1.5em;
+            margin-top: 30px;
+        }
+        h3 {
+            font-size: 1.2em;
+            margin-top: 20px;
+            color: #007bff;
+        }
+        .score-summary {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .score-summary p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .score-summary strong {
+            color: #007bff;
+        }
+        .explanation-box {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .question-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .question-item.correct {
+            border-left: 4px solid #28a745; /* Green for correct */
+            background-color: #e6ffed;
+        }
+        .question-item.incorrect {
+            border-left: 4px solid #dc3545; /* Red for incorrect */
+            background-color: #ffebee;
+        }
+        .question-item p {
+            margin: 5px 0;
+        }
+        .question-text {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .answer-details span {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .submitted-answer {
+            background-color: #cfe2ff; /* Light blue for submitted */
+        }
+        .correct-answer {
+            background-color: #d1e7dd; /* Light green for correct answer display */
+        }
+        .result-status {
+            font-weight: bold;
+            margin-top: 8px;
+        }
+        .result-status.correct {
+            color: #155724;
+        }
+        .result-status.incorrect {
+            color: #721c24;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quiz Results: {{ quiz_topic }}</h1>
+        <p>Difficulty: {{ quiz_difficulty }}</p>
+
+        <div class="score-summary">
+            <h2>Your Score</h2>
+            <p>You scored <strong>{{ quiz_attempt_score }}</strong> out of <strong>{{ quiz_attempt_total_questions }}</strong> questions.</p>
+            <p>Percentage: <strong>{{ quiz_attempt_percentage }}%</strong></p>
+        </div>
+
+        {% if quiz_explanation %}
+            <h2>Topic Explanation</h2>
+            <div class="explanation-box">
+                <p>{{ quiz_explanation|linebreaksbr }}</p>
+            </div>
+        {% endif %}
+
+        <h2>Detailed Results</h2>
+        {% if detailed_results %}
+            {% for result in detailed_results %}
+                <div class="question-item {% if result.is_correct %}correct{% else %}incorrect{% endif %}">
+                    <h3>Question {{ result.question_index|add:1 }}</h3>
+                    <p class="question-text">{{ result.question_text|linebreaksbr }}</p>
+                    <div class="answer-details">
+                        <p>Your Answer: 
+                            <span class="submitted-answer">
+                                {% if result.submitted_answer is not none %}
+                                    {{ result.submitted_answer }}
+                                {% else %}
+                                    Not Answered
+                                {% endif %}
+                            </span>
+                        </p>
+                        <p>Correct Answer: 
+                            <span class="correct-answer">
+                                {% if result.correct_answer is True %}True
+                                {% elif result.correct_answer is False %}False
+                                {% else %}{{ result.correct_answer }}{% endif %}
+                            </span>
+                        </p>
+                    </div>
+                    <p class="result-status {% if result.is_correct %}correct{% else %}incorrect{% endif %}">
+                        {% if result.is_correct %}Correct!{% else %}Incorrect{% endif %}
+                    </p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No detailed results available for this attempt.</p>
+        {% endif %}
+
+        <div class="footer">
+            <p>&copy; {% now "Y" %} Quizify. Keep learning!</p>
+        </div>
+    </div>
+</body>
+</html>

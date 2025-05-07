@@ -1,0 +1,865 @@
+/* Ghibli Theme Variables - Updated for Milky White Text & Glassy Effect */
+:root {
+    --ghibli-bg: #0c141f; /* Darker base background color */
+    /* Glassy Card Background - Semi-transparent white/light grey for better visibility on dark bg */
+    --ghibli-card-bg: rgba(255, 255, 255, 0.1); /* Slightly less transparent */
+    --ghibli-card-bg-hover: rgba(255, 255, 255, 0.2); /* Slightly more opaque on hover */
+    /* Milky/Bright White Text Colors */
+    --ghibli-text: #F0F0F0; /* Slightly off-white for main text */
+    --ghibli-text-darker: #C0C0C0; /* Lighter grey for muted text/placeholders */
+    --ghibli-text-heading: #FFFFFF; /* Pure white for headings */
+    /* Keep Accent Colors - May need slight adjustments for dark theme */
+    --ghibli-primary: #81C784; /* Soft Green - ok */
+    --ghibli-secondary: #AED581; /* Lighter Green - ok */
+    --ghibli-accent: #FFB74D; /* Soft Orange - ok */
+    /* Header Background - Image will overlay */
+    --ghibli-header-bg: rgba(26, 48, 71, 0.7); /* Darker semi-transparent blue */
+    /* Borders & Shadows - Adjust for Glassy Effect on dark */
+    --ghibli-border: rgba(255, 255, 255, 0.15); /* Slightly lighter border */
+    --ghibli-shadow: rgba(0, 0, 0, 0.3); /* Darker shadow for depth */
+    /* Feedback colors - Need adjustment for contrast with light text on dark */
+    --ghibli-correct: rgba(165, 214, 167, 0.2); /* More transparent green */
+    --ghibli-correct-text: #C8E6C9; /* Light green text */
+    --ghibli-correct-border: #81C784;
+    --ghibli-incorrect: rgba(239, 154, 154, 0.2); /* More transparent red */
+    --ghibli-incorrect-text: #FFCDD2; /* Light red text */
+    --ghibli-incorrect-border: #e57373;
+    --ghibli-unanswered: rgba(255, 204, 128, 0.25); /* More transparent orange */
+    --ghibli-unanswered-text: #FFE0B2; /* Light Orange/Amber text for unanswered */
+    --ghibli-unanswered-border: #FFB74D;
+
+
+    --font-primary: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Basic Reset & Body */
+body {
+    font-family: var(--font-primary);
+    margin: 0;
+    padding: 0;
+    background-color: var(--ghibli-bg); /* Dark fallback color */
+    /* Updated Dark Background Image - Pond Night Sky */
+    background-image: url("https://images.unsplash.com/photo-1548509320-61aca419d800?q=80&w=2018&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed; /* Keep background fixed */
+    color: var(--ghibli-text); /* Default milky white text */
+    line-height: 1.6;
+    font-size: 16px;
+    transition: background-color 0.3s ease; /* Smooth transitions */
+}
+
+/* Focus Mode Cursor Style - Example with gradient/different shape */
+#focus-cursor {
+    position: fixed; /* Use fixed to position relative to viewport */
+    width: 35px; /* Slightly larger */
+    height: 35px;
+    /* Example: Use a background gradient */
+    background: radial-gradient(circle, rgba(255,183,77,0.8) 0%, rgba(255,183,77,0) 70%); /* Orange glow */
+    border-radius: 50%;
+    /* Optional border */
+    /* border: 1px solid rgba(255, 255, 255, 0.5); */
+    pointer-events: none; /* Allows clicks to pass through */
+    transform: translate(-50%, -50%); /* Center the cursor image on the pointer location */
+    z-index: 9999; /* Keep on top */
+    opacity: 0; /* Hidden initially */
+    transition: opacity 0.3s ease, transform 0.05s linear, background 0.2s ease; /* Smooth transitions */
+    /* Ensure left/top are set by JS */
+    left: 0;
+    top: 0;
+    will-change: transform, left, top; /* Hint browser for optimization */
+}
+/* #focus-cursor.some-image-style { background-image: url('/path/to/cursor-image.png'); } /* Example if using an image */
+
+
+body.focus-mode-active {
+    cursor: none; /* Hide default cursor */
+}
+body.focus-mode-active #focus-cursor {
+    opacity: 1; /* Show focus cursor */
+}
+
+
+/* Header */
+.ghibli-header {
+    /* Header Background Image - Keep starry night/mountain */
+    background-image: url("https://images.unsplash.com/photo-1508739773434-c26b3d09e071?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80");
+    background-size: cover;
+    background-position: center bottom; /* Adjust position as needed */
+    background-color: var(--ghibli-header-bg); /* Darker Overlay color */
+    background-blend-mode: multiply; /* Blend image with color */
+    color: var(--ghibli-text-heading); /* Pure white for header text */
+    padding: 2rem 0; /* Increased padding */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); /* Increased shadow */
+    /* Add subtle text shadow for readability over image */
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
+    transition: background-color 0.3s ease; /* Smooth transition */
+    position: relative; /* Needed for potential pseudo-element overlays */
+}
+/* Optional: Add overlay for better text contrast */
+/* .ghibli-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 1;
+}
+.ghibli-header > * {
+    position: relative;
+    z-index: 2;
+} */
+
+.ghibli-header:hover {
+    /* Keep image, maybe slightly adjust overlay or brightness if needed */
+    /* Example: Slightly darken the overlay color */
+     background-color: rgba(26, 48, 71, 0.8);
+}
+
+
+.ghibli-header h1 {
+    margin: 0;
+    font-size: 3rem; /* Slightly larger */
+    font-weight: 700; /* Bolder */
+    animation: fadeInDown 1s ease-out;
+}
+
+.ghibli-header p {
+    margin: 0.5rem 0 0;
+    font-size: 1.3rem; /* Slightly larger */
+    opacity: 0.95;
+    color: var(--ghibli-text-heading); /* Use bright white */
+    animation: fadeInUp 1s ease-out 0.5s;
+    animation-fill-mode: backwards;
+}
+
+/* Focus Mode Toggle Button in Header */
+#focus-mode-toggle {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    z-index: 10; /* Above header content if using overlays */
+    border-color: rgba(255, 255, 255, 0.5); /* Lighter border */
+    color: rgba(255, 255, 255, 0.8); /* Lighter text */
+    background-color: rgba(0, 0, 0, 0.3); /* Darker transparent */
+    backdrop-filter: blur(4px);
+    transition: all 0.3s ease;
+}
+#focus-mode-toggle:hover {
+    border-color: white;
+    color: white;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+#focus-mode-toggle.active { /* Style when focus mode is ON */
+    background-color: var(--ghibli-accent);
+    color: #331a00; /* Darker text on orange button needs to stay for contrast */
+    border-color: var(--ghibli-accent);
+    box-shadow: 0 0 12px rgba(255, 183, 77, 0.6);
+}
+
+
+/* Main Content Area */
+main.container-fluid {
+    padding: 2rem 1rem;
+}
+
+/* Card styling - Glassmorphism on dark background */
+.card {
+    background-color: var(--ghibli-card-bg);
+    border: 1px solid var(--ghibli-border);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px 0 var(--ghibli-shadow);
+    backdrop-filter: blur(12px); /* Slightly more blur */
+    -webkit-backdrop-filter: blur(12px);
+    margin-bottom: 1.5rem;
+    padding: 1.5rem 2rem;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    animation: zoomIn 0.6s ease-out;
+    color: var(--ghibli-text-heading); /* Ensure card text is bright/pure white */
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4); /* Darker shadow */
+    background-color: var(--ghibli-card-bg-hover);
+}
+
+/* Placeholder styling adjusted for glassy theme on dark */
+.placeholder .card {
+    text-align: center;
+    color: var(--ghibli-text-darker); /* Use lighter grey */
+    border: 2px dashed var(--ghibli-border);
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.05); /* Very subtle background */
+    border-radius: 15px;
+    padding: 2rem;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.placeholder h2 {
+    color: var(--ghibli-text-heading); /* Pure white heading */
+    margin-bottom: 0.5rem;
+}
+.placeholder p.card-text {
+    color: var(--ghibli-text-darker); /* Lighter grey for placeholder text */
+}
+
+
+/* Form Section Styling */
+.form-section .card {
+    /* Inherits base .card glassy styles */
+}
+
+.form-section .card-text { /* Target muted text in generation form card */
+    color: var(--ghibli-text-darker);
+}
+
+.form-section h2,
+.results-section h2 {
+    margin-top: 0;
+    color: var(--ghibli-text-heading); /* Pure white heading */
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.75rem;
+    font-size: 1.6rem;
+    font-weight: 600;
+}
+
+/* Form elements adjusted for bright/light text */
+.form-label {
+    font-weight: 600;
+    color: var(--ghibli-text-heading); /* Brighter label */
+    margin-bottom: 0.5rem;
+}
+
+.form-control,
+.form-select {
+    border-radius: 8px;
+    border: 1px solid var(--ghibli-border);
+    padding: 0.8rem 1rem;
+    background-color: rgba(0, 0, 0, 0.4); /* Darker transparent background for inputs */
+    color: var(--ghibli-text-heading); /* Bright white text inside inputs */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.form-control::placeholder { /* Style placeholder text */
+    color: var(--ghibli-text-darker); /* Lighter grey placeholder */
+    opacity: 0.8;
+}
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--ghibli-accent); /* Orange accent for focus */
+    box-shadow: 0 0 0 4px rgba(255, 183, 77, 0.3); /* Softer orange focus ring */
+    outline: none;
+    background-color: rgba(0, 0, 0, 0.5); /* Slightly darker on focus */
+    color: #FFFFFF; /* Ensure white text on focus */
+}
+
+/* Ensure select options are readable */
+.form-select option {
+    background-color: #1a2a3a; /* Dark blue/grey background for dropdown */
+    color: var(--ghibli-text); /* Light text for options */
+}
+
+
+.form-text {
+    color: var(--ghibli-text-darker); /* Lighter grey */
+    font-size: 0.88em;
+}
+
+/* Button Styling - Ensure contrast */
+.btn {
+     transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease; /* Added smooth transitions */
+     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Increased shadow */
+}
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4); /* Increased shadow */
+}
+.btn:active {
+     transform: translateY(0px);
+     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); /* Increased shadow */
+}
+
+
+.btn-primary {
+    background-color: var(--ghibli-primary);
+    border-color: var(--ghibli-primary);
+    color: #003300; /* Darker green text for contrast on light green button */
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: bold;
+}
+.btn-primary:hover {
+    background-color: #71b874;
+    border-color: #71b874;
+}
+
+.btn-secondary {
+     background-color: var(--ghibli-accent);
+     border-color: var(--ghibli-accent);
+     color: #331a00; /* Darker text for contrast on orange button */
+     padding: 0.8rem 1.5rem;
+     border-radius: 8px;
+     font-weight: bold;
+}
+.btn-secondary:hover {
+     background-color: #ffa726;
+     border-color: #ffa726;
+}
+
+/* Success button for submit */
+.btn-success {
+    background-color: #28a745; /* Bootstrap success green */
+    border-color: #28a745;
+    color: #fff; /* Keep white text for success button */
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: bold;
+}
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+
+/* Results Section Adjustments */
+#quiz-container .card-subtitle { /* Target quiz subtitle text */
+    color: var(--ghibli-text-darker) !important; /* Lighter grey, using important to override if necessary */
+}
+#quiz-container h3 { /* Headings within quiz container */
+     color: var(--ghibli-text-heading);
+}
+
+.explanation-box {
+    background-color: rgba(0, 0, 0, 0.4); /* Darker semi-transparent background */
+    padding: 1.5rem;
+    border: 1px solid var(--ghibli-border);
+    border-left: 5px solid var(--ghibli-secondary); /* Keep accent border */
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    color: var(--ghibli-text-heading); /* Bright white text */
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.3); /* Inner shadow */
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0)); /* Slightly dimmer white line */
+    margin: 2rem 0;
+}
+
+/* =========================================== */
+/* == Sequential Question Display (Parallax) == */
+/* =========================================== */
+
+#quiz-form.questions-list { /* Target the form acting as the list */
+    position: relative;
+    overflow: hidden;
+    min-height: 350px; /* Initial height, JS adjusts */
+    perspective: 1200px; /* Increase perspective for smoother 3D */
+    padding: 10px; /* Add padding to prevent content touching edges */
+    /* Add transition for height adjustments */
+    transition: min-height 0.5s ease-out;
+}
+
+.question-card {
+    /* Inherits base glassy card styles */
+    /* -- Positioning & Transition -- */
+    position: absolute;
+    top: 10px; /* Match padding */
+    left: 10px; /* Match padding */
+    width: calc(100% - 20px); /* Adjust width for padding */
+    opacity: 0;
+    transform: translateX(100%) rotateY(-45deg) scale(0.9); /* Enhanced starting transform */
+    transform-origin: left center;
+    transition: opacity 0.7s ease-out, transform 0.8s cubic-bezier(0.19, 1, 0.22, 1); /* Smoother cubic-bezier */
+    visibility: hidden;
+    z-index: 1;
+    color: var(--ghibli-text-heading); /* Ensure bright white text within question card */
+    /* animation: slideInRight 0.8s ease-out; */
+}
+
+.question-card.active {
+    opacity: 1;
+    transform: translateX(0) rotateY(0deg) scale(1); /* Settle in center */
+    visibility: visible;
+    z-index: 10;
+}
+
+.question-card.exiting {
+    opacity: 0;
+    transform: translateX(-100%) rotateY(45deg) scale(0.9); /* Enhanced exiting transform */
+    transform-origin: right center;
+    z-index: 5;
+    transition: opacity 0.7s ease-in, transform 0.8s cubic-bezier(0.6, -0.28, 0.735, 0.045); /* Different ease for exit */
+}
+
+/* Styling for unanswered question highlight */
+.question-card.unanswered {
+    border-color: var(--ghibli-unanswered-border); /* Use defined border color */
+    box-shadow: 0 0 15px rgba(255, 183, 77, 0.6); /* More prominent glow */
+    background-color: var(--ghibli-unanswered); /* Use more transparent background */
+    /* color: var(--ghibli-unanswered-text); /* Light orange text - removed to keep main text white */
+}
+/* Adjust input colors when unanswered */
+.question-card.unanswered .form-control,
+.question-card.unanswered .form-select {
+    background-color: rgba(255, 255, 255, 0.1); /* Lighter input bg */
+    color: var(--ghibli-text-heading); /* Keep input text white */
+    border-color: var(--ghibli-unanswered-border);
+}
+.question-card.unanswered .form-check-label {
+    color: var(--ghibli-text-heading); /* Keep label text white */
+}
+.question-card.unanswered .validation-error { /* Ensure validation text is visible */
+    color: var(--ghibli-unanswered-text) !important; /* Use the light orange color for validation text */
+}
+
+
+/* -- Question Content Styling -- */
+
+.question-card h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--ghibli-text-heading); /* Pure white heading for Q number */
+    font-size: 1.3em; /* Slightly larger */
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Darker shadow */
+}
+
+.question-card p.question-text {
+    margin-bottom: 1.5rem;
+    font-size: 1.15em; /* Slightly larger text */
+    color: var(--ghibli-text-heading); /* Bright white for question text */
+    line-height: 1.7; /* Improve readability */
+}
+
+/* Options styling adjustments */
+.form-check {
+    margin-bottom: 0.85rem;
+    background-color: rgba(0, 0, 0, 0.3); /* Darker transparent bg for options */
+    padding: 0.9rem 1.3rem;
+    border-radius: 10px;
+    border: 1px solid var(--ghibli-border);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    cursor: pointer; /* Make whole area clickable */
+}
+.form-check:hover {
+     background-color: rgba(0, 0, 0, 0.45); /* Slightly darker on hover */
+     border-color: rgba(255, 255, 255, 0.3); /* Lighter border */
+}
+
+.form-check-input[type="radio"] {
+    border-color: var(--ghibli-accent); /* Use accent for radio border */
+    background-color: transparent; /* Make radio transparent initially */
+    margin-top: 0;
+    margin-right: 0.85rem;
+    flex-shrink: 0; /* Prevent radio from shrinking */
+    appearance: none; /* Custom appearance */
+    width: 1.3em;
+    height: 1.3em;
+    border-radius: 50%;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    position: relative; /* For pseudo-element */
+}
+/* Custom radio button checkmark */
+.form-check-input[type="radio"]::before {
+    content: "";
+    display: block;
+    width: 0.7em;
+    height: 0.7em;
+    border-radius: 50%;
+    background-color: var(--ghibli-accent);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0); /* Hidden initially */
+    transition: transform 0.2s ease;
+}
+
+.form-check-input[type="radio"]:checked {
+    border-color: var(--ghibli-primary); /* Green border when checked */
+    background-color: rgba(129, 199, 132, 0.2); /* Subtle green bg */
+    box-shadow: 0 0 5px rgba(129, 199, 132, 0.5);
+}
+.form-check-input[type="radio"]:checked::before {
+    transform: translate(-50%, -50%) scale(1); /* Show checkmark */
+    background-color: var(--ghibli-primary); /* Green checkmark */
+}
+
+.form-check-label {
+    cursor: pointer;
+    flex-grow: 1;
+    padding-left: 0.25rem;
+    color: var(--ghibli-text-heading); /* Bright white label */
+}
+
+
+/* Fill in the blank input */
+.question-card .fill-blank-input {
+     margin-top: 0.5rem;
+     /* Inherits .form-control styles */
+}
+
+/* Next/Submit Buttons within questions */
+.question-card .btn-next,
+.question-card .btn-submit-quiz {
+    margin-top: 1.5rem;
+    padding: 0.9rem 1.8rem; /* Larger buttons */
+    font-size: 1.05em;
+}
+
+/* ============================ */
+/* == Feedback Styling == */
+/* ============================ */
+
+/* Feedback styling within each question card (shown after answering/checking) */
+/* We are not showing feedback per question in sequential mode, only in the final results */
+/* .question-card .feedback {
+    background-color: rgba(50, 50, 50, 0.5);
+    color: var(--ghibli-text-heading);
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+    border-radius: 8px;
+    font-size: 0.95em;
+    border-left: 5px solid var(--ghibli-border);
+    display: none;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.question-card .feedback p {
+    margin: 0.3rem 0;
+}
+.question-card .feedback strong {
+     font-weight: 600;
+     color: var(--ghibli-text-heading);
+} */
+
+/* Correct Answer Feedback */
+/* .question-card.correct .feedback {
+    background-color: var(--ghibli-correct);
+    color: var(--ghibli-correct-text);
+    border-left-color: var(--ghibli-correct-border);
+}
+.question-card.correct .feedback strong {
+    color: var(--ghibli-correct-text);
+} */
+
+
+/* Incorrect Answer Feedback */
+/* .question-card.incorrect .feedback {
+    background-color: var(--ghibli-incorrect);
+    color: var(--ghibli-incorrect-text);
+    border-left-color: var(--ghibli-incorrect-border);
+}
+.question-card.incorrect .feedback strong {
+    color: var(--ghibli-incorrect-text);
+} */
+
+
+/* ================================ */
+/* == Score & Results Styling == */
+/* ================================ */
+
+/* Alert Styling */
+.alert {
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    backdrop-filter: blur(5px); /* Subtle blur for alerts */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.alert-danger {
+    background-color: var(--ghibli-incorrect); /* Use theme color */
+    color: var(--ghibli-incorrect-text);
+    border-color: rgba(229, 115, 115, 0.5); /* More transparent red border */
+    text-shadow: none; /* Remove text shadow if needed */
+}
+.alert-danger .alert-heading {
+    color: inherit; /* Use the light red text color */
+}
+.alert-danger p {
+     color: inherit; /* Use the light red text color */
+}
+.alert-danger small { /* Ensure small text is readable */
+    color: var(--ghibli-incorrect-text);
+    opacity: 0.9;
+}
+
+/* Validation error styling (inside question cards) */
+.validation-error.alert-warning {
+    background-color: var(--ghibli-unanswered);
+    color: var(--ghibli-unanswered-text) !important; /* Light orange text, important if needed */
+    border-color: rgba(255, 183, 77, 0.5);
+    padding: 0.5rem 1rem;
+    font-size: 0.9em;
+    text-shadow: none;
+}
+
+
+/* Score Container Styling */
+#score-container .card {
+     /* Inherits base glassy styles */
+     margin-top: 2rem;
+     animation: fadeIn 1s ease-out; /* Fade in animation for score */
+     color: var(--ghibli-text-heading); /* Ensure bright white text */
+}
+#score-container .card-subtitle { /* Target score subtitle text */
+    color: var(--ghibli-text-darker) !important; /* Lighter grey */
+}
+#score-container h2 {
+     color: var(--ghibli-text-heading); /* Pure white heading */
+     margin-bottom: 1rem;
+}
+#score-container p {
+    font-size: 1.15em;
+    margin-bottom: 0.75rem;
+    color: var(--ghibli-text-heading); /* Bright white */
+}
+#score-container strong {
+    font-weight: 600;
+    color: var(--ghibli-accent); /* Orange accent for scores */
+}
+#score-container hr {
+    /* Inherits global HR style */
+}
+
+/* Detailed Results Styling */
+#detailed-results .result-item {
+    margin-bottom: 1.25rem;
+    padding: 1.25rem;
+    border-left-width: 5px;
+    border-left-style: solid;
+    border-radius: 10px; /* Match glassy card radius */
+    background-color: rgba(0, 0, 0, 0.3); /* Consistent darker background */
+    border: 1px solid var(--ghibli-border); /* Add border */
+    transition: background-color 0.3s ease, border-left-color 0.3s ease;
+    animation: fadeInUp 0.5s ease-out; /* Animation for each item */
+    animation-fill-mode: backwards; /* Start hidden */
+    color: var(--ghibli-text-heading); /* Base text color for results */
+}
+/* Stagger animation */
+#detailed-results .result-item:nth-child(1) { animation-delay: 0.1s; }
+#detailed-results .result-item:nth-child(2) { animation-delay: 0.2s; }
+#detailed-results .result-item:nth-child(3) { animation-delay: 0.3s; }
+#detailed-results .result-item:nth-child(4) { animation-delay: 0.4s; }
+#detailed-results .result-item:nth-child(5) { animation-delay: 0.5s; }
+/* Add more if needed */
+
+
+#detailed-results .result-item.correct {
+    border-left-color: var(--ghibli-correct-border); /* Green */
+    background-color: var(--ghibli-correct); /* Subtle green bg */
+}
+#detailed-results .result-item.incorrect {
+    border-left-color: var(--ghibli-incorrect-border); /* Red */
+    background-color: var(--ghibli-incorrect); /* Subtle red bg */
+}
+
+#detailed-results .result-item h4 {
+    font-size: 1.05em;
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: var(--ghibli-text-heading); /* Pure white heading */
+}
+#detailed-results .result-item .question-text {
+    font-size: 1em;
+    margin-bottom: 1rem;
+    color: var(--ghibli-text-heading); /* Bright white for question text */
+}
+#detailed-results .result-item .feedback {
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.9em;
+    background: rgba(255, 255, 255, 0.05); /* Very Subtle Lighter inner feedback bg */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+}
+#detailed-results .result-item .feedback p {
+     margin: 0.2rem 0;
+     color: var(--ghibli-text); /* Ensure text color is milky white */
+}
+#detailed-results .result-item .feedback .result-status {
+    font-weight: bold;
+    display: block;
+    margin-top: 0.5rem;
+}
+#detailed-results .result-item.correct .result-status { color: var(--ghibli-correct-text); } /* Light green */
+#detailed-results .result-item.incorrect .result-status { color: var(--ghibli-incorrect-text); } /* Light red */
+
+#detailed-results .result-item .result-submitted,
+#detailed-results .result-item .result-correct {
+    font-style: normal; /* Remove italics */
+    background-color: rgba(0, 0, 0, 0.6); /* Darker highlight for better contrast */
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+    display: inline-block;
+    color: var(--ghibli-text-heading); /* Pure white text */
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+/* Override for specific feedback colors if needed */
+#detailed-results .result-item.correct .feedback p,
+#detailed-results .result-item.correct .feedback .result-submitted,
+#detailed-results .result-item.correct .feedback .result-correct {
+    color: var(--ghibli-correct-text); /* Light green for correct feedback */
+}
+#detailed-results .result-item.incorrect .feedback p,
+#detailed-results .result-item.incorrect .feedback .result-submitted,
+#detailed-results .result-item.incorrect .feedback .result-correct {
+    color: var(--ghibli-incorrect-text); /* Light red for incorrect feedback */
+}
+
+
+/* Footer */
+footer {
+    padding: 1.5rem;
+    margin-top: 3rem;
+    font-size: 0.95em;
+    border-top: 1px solid rgba(255, 255, 255, 0.15); /* Lighter top border */
+    background-color: rgba(0, 0, 0, 0.3); /* Slightly darker background */
+    backdrop-filter: blur(5px);
+}
+footer p {
+    margin: 0;
+    color: var(--ghibli-text-darker); /* Lighter grey */
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .ghibli-header {
+        padding: 1.5rem 0;
+    }
+    .ghibli-header h1 {
+        font-size: 2.4rem;
+    }
+    .ghibli-header p {
+        font-size: 1.1rem;
+    }
+    #focus-mode-toggle {
+        top: 10px;
+        right: 10px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+    }
+    .card {
+        padding: 1.2rem 1.5rem;
+    }
+    .form-section h2,
+    .results-section h2 {
+        font-size: 1.4rem;
+    }
+    .question-card {
+         padding: 1.2rem 1.5rem;
+    }
+    .question-card p.question-text {
+         font-size: 1.1em;
+    }
+    .btn {
+         padding: 0.7rem 1.2rem;
+         font-size: 0.95em;
+    }
+}
+
+/* Animations (Using standard CSS animations, Bootstrap animations aren't typically applied like this) */
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-25px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(25px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes zoomIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Add more complex animations if needed */
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(50px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Initial state for content reveal */
+#quiz-container, #score-container {
+    /* Start hidden, JS will show */
+    display: none;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+#quiz-container.visible, #score-container.visible {
+    display: block; /* Or 'flex'/'grid' if needed */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Add Bootstrap Animation Classes Here (Example - apply via JS or directly in template) */
+/* .animate__fadeInLeft { animation: fadeInLeft 1s; }
+.animate__fadeInRight { animation: fadeInRight 1s; }
+.animate__bounceIn { animation: bounceIn 1s; }
+.animate__lightSpeedInRight { animation: lightSpeedInRight 1s; }
+.animate__rollIn { animation: rollIn 1s; }
+.animate__zoomInUp { animation: zoomInUp 1s; }
+.animate__slideInUp { animation: slideInUp 1s; }
+.animate__jackInTheBox { animation: jackInTheBox 1s; }
+.animate__hinge { animation: hinge 2s; }
+.animate__backInDown { animation: backInDown 1s; } */
+
+/* Include Animate.css if you want to use its classes directly:
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+   Then add classes like 'animate__animated animate__fadeInLeft' to elements.
+*/
+
+/* Adjustments for dark theme feedback text contrast */
+/* #detailed-results .result-item.correct .result-status {
+    color: #a5d6a7;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+#detailed-results .result-item.incorrect .result-status {
+    color: #ef9a9a;
+     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+} */
+/* Using variables is better */
+#detailed-results .result-item.correct .result-status {
+    color: var(--ghibli-correct-text);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+#detailed-results .result-item.incorrect .result-status {
+    color: var(--ghibli-incorrect-text);
+     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+
+/* #detailed-results .result-item.correct .result-correct,
+#detailed-results .result-item.correct .result-submitted {
+    color: var(--ghibli-correct-text);
+}
+#detailed-results .result-item.incorrect .result-correct,
+#detailed-results .result-item.incorrect .result-submitted {
+     color: var(--ghibli-incorrect-text);
+} */
+/* Already handled by general feedback p color rules */
+
+#detailed-results .result-item .result-correct,
+#detailed-results .result-item .result-submitted {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6); /* More shadow for light text on dark */
+}
+
+/* Make score numbers stand out more */
+#score-container strong#final-score,
+#score-container strong#total-questions,
+#score-container strong#score-percentage {
+    color: var(--ghibli-accent); /* Orange accent */
+    font-size: 1.1em;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
