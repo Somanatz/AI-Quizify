@@ -171,12 +171,6 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
 
 def main():
     # Display warnings if API key or library issues were detected during startup
-    if library_warning_message:
-        st.warning(library_warning_message)
-    if api_key_warning_message:
-        st.warning(api_key_warning_message)
-    if not genai or not GOOGLE_API_KEY: # Additional check for clarity
-        st.info("AI features will use placeholder data due to missing configuration.")
 
     st.title("🧙 Quizify - AI Powered Quiz Generator")
     st.markdown("Generate quizzes on any topic using AI!")
