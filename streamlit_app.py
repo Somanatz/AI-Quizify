@@ -54,7 +54,8 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
             ]
         }
 
-    model = 'gemini-2.0-flash'
+    #model = 'gemini-2.0-flash'
+    model = genai.GenerativeModel('gemini-2.0-flash')
 
     type_map = {
         'mcq': 'Multiple Choice (MCQ)',
@@ -110,7 +111,10 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
     """
 
     try:
-        response = client.models.generate_content(model=model, contents=prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(temperature=0.7)
+        )
         raw_text = response.text
         try:
             generated_data = json.loads(raw_text)
