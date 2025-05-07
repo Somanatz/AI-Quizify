@@ -11,7 +11,7 @@ st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sideba
 
 # Attempt to import google.generativeai, but handle if not available or API key is missing
 try:
-    import google.generativeai as genai_module
+    from google import genai
     from dotenv import load_dotenv
 
     load_dotenv()
