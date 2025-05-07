@@ -17,7 +17,7 @@ try:
     GOOGLE_API_KEY = "AIzaSyDnJVHu0aa6v_0cAdOS9wawadO1EX7RRwM"
 
     if GOOGLE_API_KEY:
-        client = genai_module.Client(api_key=GOOGLE_API_KEY)
+        client = genai_module.configure(api_key=GOOGLE_API_KEY)
          # Assign to global genai
     else:
         api_key_warning_message = "GOOGLE_API_KEY not found. AI generation will use placeholders."
