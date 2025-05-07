@@ -3,7 +3,7 @@ import streamlit as st
 import os
 import json
 import re
-from google import genai
+import google.generativeai as genai_module
 from dotenv import load_dotenv
 # --- Page Config (Must be the first Streamlit command) ---
 st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
@@ -17,7 +17,7 @@ try:
     GOOGLE_API_KEY = "AIzaSyDnJVHu0aa6v_0cAdOS9wawadO1EX7RRwM"
 
     if GOOGLE_API_KEY:
-        client = genai.Client(api_key=GOOGLE_API_KEY)
+        client = genai_module.Client(api_key=GOOGLE_API_KEY)
          # Assign to global genai
     else:
         api_key_warning_message = "GOOGLE_API_KEY not found. AI generation will use placeholders."
@@ -33,7 +33,7 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
     Generates quiz content (explanation and questions) using the Gemini API if available,
     otherwise returns placeholder data.
     """
-    if not genai or not GOOGLE_API_KEY:
+    if not genai_module or not GOOGLE_API_KEY:
         # Placeholder data if API key or library is not available
         # We'll display warnings in the main app flow, not here, to avoid early Streamlit calls.
         # st.info("Using placeholder data as Google API Key or genai library is not configured.")
