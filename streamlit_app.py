@@ -8,10 +8,6 @@ import re
 st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
 
 # --- Global Variables & Setup ---
-genai = None
-GOOGLE_API_KEY = None
-api_key_warning_message = None
-library_warning_message = None
 
 # Attempt to import google.generativeai, but handle if not available or API key is missing
 try:
@@ -19,7 +15,7 @@ try:
     from dotenv import load_dotenv
 
     load_dotenv()
-    GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+    GOOGLE_API_KEY = settings.GOOGLE_API_KEY
 
     if GOOGLE_API_KEY:
         client = genai.Client(api_key=GOOGLE_API_KEY)
