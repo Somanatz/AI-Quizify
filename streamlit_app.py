@@ -4,24 +4,33 @@ import os
 import json
 import re
 
+# --- Page Config (Must be the first Streamlit command) ---
+st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
+
+# --- Global Variables & Setup ---
+genai = None
+GOOGLE_API_KEY = None
+api_key_warning_message = None
+library_warning_message = None
+
 # Attempt to import google.generativeai, but handle if not available or API key is missing
 try:
-    from google import genai
+    import google.generativeai as genai_module
     from dotenv import load_dotenv
 
-    # Load environment variables from .env file if present
-    # Useful if running streamlit app locally in an environment where .env is used
     load_dotenv()
     GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 
     if GOOGLE_API_KEY:
-        client = genai.configure(api_key=GOOGLE_API_KEY)
+        genai_module.configure(api_key=GOOGLE_API_KEY)
+        genai = genai_module # Assign to global genai
     else:
-        st.warning("GOOGLE_API_KEY not found. AI generation will use placeholders.")
-        genai = None # Ensure genai is None if key is missing
+        api_key_warning_message = "GOOGLE_API_KEY not found. AI generation will use placeholders."
+        # genai remains None
 except ImportError:
-    st.warning("google.generativeai or python-dotenv library not found. AI generation will use placeholders.")
-    genai = None # Ensure genai is None if library is missing
+    library_warning_message = "google.generativeai or python-dotenv library not found. AI generation will use placeholders."
+    # genai remains None
+
 
 # --- Helper Function for AI Generation (adapted from Django views) ---
 def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, num_questions: int = 5):
@@ -31,7 +40,8 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
     """
     if not genai or not GOOGLE_API_KEY:
         # Placeholder data if API key or library is not available
-        st.info("Using placeholder data as Google API Key or genai library is not configured.")
+        # We'll display warnings in the main app flow, not here, to avoid early Streamlit calls.
+        # st.info("Using placeholder data as Google API Key or genai library is not configured.")
         return {
             'topic': topic,
             'difficulty': difficulty,
@@ -49,7 +59,7 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
             ]
         }
 
-    model = 'gemini-2.0-flash'
+    model = genai.GenerativeModel('gemini-pro')
 
     type_map = {
         'mcq': 'Multiple Choice (MCQ)',
@@ -105,7 +115,10 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
     """
 
     try:
-        response = client.models.generate_content(model=model, contents=prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(temperature=0.7)
+        )
         raw_text = response.text
         try:
             generated_data = json.loads(raw_text)
@@ -118,13 +131,13 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
                 if json_match_braces:
                     json_str = json_match_braces.group(0)
                 else:
-                    st.error(f"Failed to extract JSON. Raw response:\n{raw_text}")
-                    raise ValueError("Could not find valid JSON in the AI response after multiple cleaning attempts.")
+                    # Use st.error inside the main app flow if this function is called from there
+                    # For now, raise ValueError which will be caught
+                    raise ValueError(f"Failed to extract JSON. Raw response:\n{raw_text}")
             try:
                 generated_data = json.loads(json_str)
             except json.JSONDecodeError as e:
-                st.error(f"Error decoding cleaned JSON: {e}\nCleaned JSON string was:\n{json_str}\nOriginal raw response was:\n{raw_text}")
-                raise ValueError(f"Failed to parse the AI's response as valid JSON even after cleaning. {e}") from e
+                raise ValueError(f"Error decoding cleaned JSON: {e}\nCleaned JSON string was:\n{json_str}\nOriginal raw response was:\n{raw_text}") from e
 
         if 'explanation' not in generated_data or not isinstance(generated_data['explanation'], str):
             raise ValueError("Generated JSON is missing 'explanation' key or it's not a string.")
@@ -132,7 +145,9 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
             raise ValueError("Generated JSON is missing 'questions' key or it's not a list.")
         
         if len(generated_data['questions']) != num_questions:
-             st.warning(f"AI returned {len(generated_data['questions'])} questions, but {num_questions} were requested. Using the {len(generated_data['questions'])} questions returned.")
+             # st.warning can be called in the main flow if this function returns a flag or specific error
+             print(f"Warning: AI returned {len(generated_data['questions'])} questions, but {num_questions} were requested.")
+
 
         for i, q in enumerate(generated_data['questions']):
              if not all(k in q for k in ['question_text', 'type', 'difficulty', 'answer']):
@@ -156,13 +171,19 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
         return result
 
     except Exception as e:
-        st.error(f"An unexpected error occurred during AI generation: {e}")
+        # st.error(f"An unexpected error occurred during AI generation: {e}") # Call in main flow
         # Re-raise a more generic error to the view
         raise Exception(f"An error occurred while communicating with the AI service: {e}") from e
 
 
 def main():
-    st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
+    # Display warnings if API key or library issues were detected during startup
+    if library_warning_message:
+        st.warning(library_warning_message)
+    if api_key_warning_message:
+        st.warning(api_key_warning_message)
+    if not genai or not GOOGLE_API_KEY: # Additional check for clarity
+        st.info("AI features will use placeholder data due to missing configuration.")
 
     st.title("🧙 Quizify - AI Powered Quiz Generator")
     st.markdown("Generate quizzes on any topic using AI!")
@@ -210,6 +231,13 @@ def main():
             with st.spinner(f"Generating {difficulty} {question_type_options[question_type]} quiz on '{topic}'... Please wait."):
                 try:
                     st.session_state.quiz_data = generate_quiz_content_st(topic, question_type, difficulty, num_questions)
+                    if not genai or not GOOGLE_API_KEY: # If using placeholders
+                        st.info("Displaying placeholder quiz data as AI generation is not fully configured.")
+
+                    # Check if questions were actually generated or if it's placeholder with few/no questions
+                    if not st.session_state.quiz_data or not st.session_state.quiz_data.get('questions'):
+                         st.warning("The AI (or placeholder) did not return any questions. Try adjusting parameters or check AI configuration.")
+                    
                     st.session_state.submitted_answers = {} # Reset answers for new quiz
                     st.session_state.show_results = False # Hide previous results
                     st.session_state.current_topic = topic # Store current topic
@@ -231,7 +259,7 @@ def main():
         st.subheader("❓ Questions")
 
         if not quiz['questions']:
-            st.warning("No questions were generated for this topic. Try different parameters.")
+            st.warning("No questions were generated for this topic. Try different parameters or check AI settings.")
         else:
             user_answers_form = st.form(key="user_answers_form")
             for i, q in enumerate(quiz['questions']):
@@ -242,9 +270,15 @@ def main():
                     options = q.get('options', [])
                     # Ensure options are strings for display
                     options_display = [str(opt) for opt in options]
-                    st.session_state.submitted_answers[question_key] = user_answers_form.radio(
-                        "Your answer:", options_display, key=question_key, index=None
-                    )
+                    # Gracefully handle if options are missing or not enough for radio
+                    if options_display and len(options_display) > 0:
+                        st.session_state.submitted_answers[question_key] = user_answers_form.radio(
+                            "Your answer:", options_display, key=question_key, index=None
+                        )
+                    else:
+                        user_answers_form.markdown("_MCQ options not available for this question._")
+                        st.session_state.submitted_answers[question_key] = None
+
                 elif q['type'] == 'fill':
                     st.session_state.submitted_answers[question_key] = user_answers_form.text_input(
                         "Your answer:", key=question_key
@@ -253,6 +287,9 @@ def main():
                     st.session_state.submitted_answers[question_key] = user_answers_form.radio(
                         "Your answer:", ["True", "False"], key=question_key, index=None
                     )
+                else: # Unknown type
+                     user_answers_form.markdown(f"_Unsupported question type: {q.get('type', 'Unknown')}_")
+                     st.session_state.submitted_answers[question_key] = None
                 user_answers_form.markdown("---")
 
             submit_answers_button = user_answers_form.form_submit_button("✅ Submit Answers")
@@ -318,7 +355,7 @@ def main():
         1.  **Enter a Topic**: Type any subject you want a quiz on (e.g., "Python Programming", "World History", "Photosynthesis").
         2.  **Select Question Type**: Choose from Multiple Choice, Fill in the Blank, or True/False.
         3.  **Choose Difficulty**: Pick Easy, Medium, or Hard.
-        4.  **Number of Questions**: Decide how many questions you want (1-100).
+        4.  **Number of Questions**: Decide how many questions you want (1-20).
         5.  Click **Generate Quiz**!
         
         The quiz explanation and questions will appear here. Good luck! 🍀
@@ -329,3 +366,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+    
