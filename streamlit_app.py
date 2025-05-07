@@ -3,8 +3,6 @@ import streamlit as st
 import os
 import json
 import re
-import google.generativeai as genai_module
-from dotenv import load_dotenv
 # --- Page Config (Must be the first Streamlit command) ---
 st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
 
@@ -12,12 +10,14 @@ st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sideba
 
 # Attempt to import google.generativeai, but handle if not available or API key is missing
 try:
-
+    import google.generativeai as genai_module
+    from dotenv import load_dotenv
     load_dotenv()
     GOOGLE_API_KEY = "AIzaSyDnJVHu0aa6v_0cAdOS9wawadO1EX7RRwM"
 
     if GOOGLE_API_KEY:
-        client = genai_module.configure(api_key=GOOGLE_API_KEY)
+        genai_module.configure(api_key=GOOGLE_API_KEY)
+        genai = genai_module
          # Assign to global genai
     else:
         api_key_warning_message = "GOOGLE_API_KEY not found. AI generation will use placeholders."
