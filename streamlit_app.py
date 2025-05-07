@@ -356,7 +356,7 @@ def main():
             question_type = [k for k, v in question_type_options.items() if v == question_type_display][0]
 
             difficulty = st.select_slider("Select Difficulty:", options=['Easy', 'Medium', 'Hard'], value='Medium')
-            num_questions = st.number_input("Number of Questions:", min_value=1, max_value=20, value=5)
+            num_questions = st.number_input("Number of Questions:", min_value=1, max_value=100, value=5)
             generate_button = st.form_submit_button(label="🚀 Generate Quiz")
 
         if st.button("🔄 Reset Quiz & Start Over"):
@@ -548,7 +548,7 @@ def main():
         1.  **Enter a Topic**: Type any subject you want a quiz on.
         2.  **Select Question Type**: Choose from Multiple Choice, Fill in the Blank, or True/False.
         3.  **Choose Difficulty**: Pick Easy, Medium, or Hard.
-        4.  **Number of Questions**: Decide how many questions you want (1-20).
+        4.  **Number of Questions**: Decide how many questions you want (1-100).
         5.  Click **Generate Quiz**!
         
         The quiz explanation and questions will appear here. Good luck! 🍀
