@@ -15,7 +15,7 @@ try:
     from dotenv import load_dotenv
 
     load_dotenv()
-    GOOGLE_API_KEY = settings.GOOGLE_API_KEY
+    GOOGLE_API_KEY = "AIzaSyDnJVHu0aa6v_0cAdOS9wawadO1EX7RRwM"
 
     if GOOGLE_API_KEY:
         client = genai.Client(api_key=GOOGLE_API_KEY)
