@@ -3,6 +3,9 @@ import streamlit as st
 import os
 import json
 import re
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 # --- Page Config (Must be the first Streamlit command) ---
 st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
 
@@ -12,8 +15,11 @@ st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sideba
 try:
     import google.generativeai as genai_module
     from dotenv import load_dotenv
+    
     load_dotenv()
-    GOOGLE_API_KEY = "AIzaSyDnJVHu0aa6v_0cAdOS9wawadO1EX7RRwM"
+    GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
     if GOOGLE_API_KEY:
         genai_module.configure(api_key=GOOGLE_API_KEY)
@@ -171,14 +177,160 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
         # Re-raise a more generic error to the view
         raise Exception(f"An error occurred while communicating with the AI service: {e}") from e
 
+# --- Email Sending Helper Functions ---
+def generate_email_html_content_st(quiz_topic, quiz_difficulty, quiz_explanation, score, total_questions, percentage, detailed_results_list):
+    html_body = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Quiz Results: {quiz_topic}</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }}
+            .container {{ width: 90%; max-width: 600px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+            h1, h2, h3 {{ color: #0056b3; }}
+            .score-summary {{ background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center; }}
+            .explanation-box {{ background-color: #f9f9f9; padding: 15px; border-left: 4px solid #007bff; margin-bottom: 20px; border-radius: 4px; }}
+            .question-item {{ margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }}
+            .question-item.correct {{ border-left: 4px solid #28a745; background-color: #e6ffed; }}
+            .question-item.incorrect {{ border-left: 4px solid #dc3545; background-color: #ffebee; }}
+            .question-text {{ font-weight: bold; margin-bottom: 10px; }}
+            .answer-details span {{ display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.9em; }}
+            .submitted-answer {{ background-color: #cfe2ff; }}
+            .correct-answer {{ background-color: #d1e7dd; }}
+            .result-status {{ font-weight: bold; margin-top: 8px; }}
+            .result-status.correct {{ color: #155724; }}
+            .result-status.incorrect {{ color: #721c24; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Quiz Results: {quiz_topic}</h1>
+            <p>Difficulty: {quiz_difficulty}</p>
+            <div class="score-summary">
+                <h2>Your Score</h2>
+                <p>You scored <strong>{score}</strong> out of <strong>{total_questions}</strong> questions.</p>
+                <p>Percentage: <strong>{percentage:.2f}%</strong></p>
+            </div>
+    """
+    if quiz_explanation:
+        html_body += f"""
+            <h2>Topic Explanation</h2>
+            <div class="explanation-box"><p>{quiz_explanation.replace  ('&lt;br&gt;','<br>')}</p></div>
+        """
+    html_body += "<h2>Detailed Results</h2>"
+    if detailed_results_list:
+        for result in detailed_results_list:
+            q_text_html = result['question_text'].replace('&lt;br&gt;','<br>') if result['question_text'] else 'N/A'
+            submitted_ans_html = result['submitted_answer'] if result['submitted_answer'] is not None else "Not Answered"
+            correct_ans_val = result['correct_answer']
+            correct_ans_html = "True" if correct_ans_val is True else ("False" if correct_ans_val is False else correct_ans_val)
+            
+            status_class = "correct" if result['is_correct'] else "incorrect"
+            status_text = "Correct!" if result['is_correct'] else "Incorrect"
+
+            html_body += f"""
+            <div class="question-item {status_class}">
+                <h3>Question {result['question_index'] + 1}</h3>
+                <p class="question-text">{q_text_html}</p>
+                <div class="answer-details">
+                    <p>Your Answer: <span class="submitted-answer">{submitted_ans_html}</span></p>
+                    <p>Correct Answer: <span class="correct-answer">{correct_ans_html}</span></p>
+                </div>
+                <p class="result-status {status_class}">{status_text}</p>
+            </div>
+            """
+    else:
+        html_body += "<p>No detailed results available for this attempt.</p>"
+    
+    html_body += """
+            <div style="text-align: center; margin-top: 30px; font-size: 0.9em; color: #777;">
+                <p>&copy; Quizify. Keep learning!</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html_body
+
+def generate_email_text_content_st(quiz_topic, quiz_difficulty, quiz_explanation, score, total_questions, percentage, detailed_results_list):
+    text_body = f"Quiz Results for: {quiz_topic} (Difficulty: {quiz_difficulty})\n\n"
+    text_body += f"Your Score: {score}/{total_questions} ({percentage:.2f}%)\n\n"
+    if quiz_explanation:
+        text_body += f"Explanation:\n{quiz_explanation}\n\n"
+    
+    text_body += "--- Detailed Results ---\n"
+    if detailed_results_list:
+        for result in detailed_results_list:
+            q_num = result['question_index'] + 1
+            q_text = result['question_text'] if result['question_text'] else 'N/A'
+            submitted = result['submitted_answer'] if result['submitted_answer'] is not None else "Not Answered"
+            correct_ans_val = result['correct_answer']
+            correct_ans_text = "True" if correct_ans_val is True else ("False" if correct_ans_val is False else correct_ans_val)
+            status = "Correct" if result['is_correct'] else "Incorrect"
+            text_body += f"\nQuestion {q_num}: {q_text}\nYour Answer: {submitted}\nCorrect Answer: {correct_ans_text}\nStatus: {status}\n---"
+    else:
+        text_body += "No detailed results available.\n"
+        
+    text_body += "\n\nThank you for using Quizify!"
+    return text_body
+
+def send_quiz_email_st(to_email, quiz_main_data, score, total_questions, percentage, detailed_results_list):
+    if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+        st.error("Email server not configured. Administrator needs to set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in .env.")
+        return False
+
+    subject = f"Your Quiz Results: {quiz_main_data['topic']}"
+    from_email = EMAIL_HOST_USER
+
+    html_content = generate_email_html_content_st(
+        quiz_main_data['topic'], quiz_main_data['difficulty'], quiz_main_data.get('content'),
+        score, total_questions, percentage, detailed_results_list
+    )
+    text_content = generate_email_text_content_st(
+        quiz_main_data['topic'], quiz_main_data['difficulty'], quiz_main_data.get('content'),
+        score, total_questions, percentage, detailed_results_list
+    )
+
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From'] = from_email
+    msg['To'] = to_email
+
+    part1 = MIMEText(text_content, 'plain')
+    part2 = MIMEText(html_content, 'html')
+
+    msg.attach(part1)
+    msg.attach(part2)
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_HOST_USER, EMAIL_HOST_PASSWORD)
+        server.sendmail(from_email, to_email, msg.as_string())
+        server.quit()
+        st.success(f"Quiz results successfully sent to {to_email}!")
+        return True
+    except Exception as e:
+        st.error(f"Failed to send email: {e}")
+        print(f"SMTP Error: {e}") # Log to console for debugging
+        return False
+
 
 def main():
     # Display warnings if API key or library issues were detected during startup
+    if library_warning_message:
+        st.warning(library_warning_message)
+    if api_key_warning_message:
+        st.warning(api_key_warning_message)
+    if not genai or not GOOGLE_API_KEY: # Additional check for clarity
+        st.info("AI features will use placeholder data due to missing configuration.")
 
     st.title("🧙 Quizify - AI Powered Quiz Generator")
     st.markdown("Generate quizzes on any topic using AI!")
 
-    # Initialize session state for quiz data and submission
+    # Initialize session state
     if 'quiz_data' not in st.session_state:
         st.session_state.quiz_data = None
     if 'submitted_answers' not in st.session_state:
@@ -187,6 +339,14 @@ def main():
         st.session_state.show_results = False
     if 'current_topic' not in st.session_state:
         st.session_state.current_topic = ""
+    if 'last_quiz_detailed_results' not in st.session_state:
+        st.session_state.last_quiz_detailed_results = []
+    if 'last_quiz_score' not in st.session_state:
+        st.session_state.last_quiz_score = 0
+    if 'last_quiz_total_questions' not in st.session_state:
+        st.session_state.last_quiz_total_questions = 0
+    if 'last_quiz_percentage' not in st.session_state:
+        st.session_state.last_quiz_percentage = 0.0
 
 
     with st.sidebar:
@@ -199,7 +359,6 @@ def main():
                 'tf': 'True/False'
             }
             question_type_display = st.selectbox("Select Question Type:", options=list(question_type_options.values()), index=0)
-            # Convert display name back to key for processing
             question_type = [k for k, v in question_type_options.items() if v == question_type_display][0]
 
             difficulty = st.select_slider("Select Difficulty:", options=['Easy', 'Medium', 'Hard'], value='Medium')
@@ -211,6 +370,10 @@ def main():
             st.session_state.submitted_answers = {}
             st.session_state.show_results = False
             st.session_state.current_topic = ""
+            st.session_state.last_quiz_detailed_results = []
+            st.session_state.last_quiz_score = 0
+            st.session_state.last_quiz_total_questions = 0
+            st.session_state.last_quiz_percentage = 0.0
             st.rerun()
 
 
@@ -221,16 +384,15 @@ def main():
             with st.spinner(f"Generating {difficulty} {question_type_options[question_type]} quiz on '{topic}'... Please wait."):
                 try:
                     st.session_state.quiz_data = generate_quiz_content_st(topic, question_type, difficulty, num_questions)
-                    if not genai or not GOOGLE_API_KEY: # If using placeholders
+                    if not genai or not GOOGLE_API_KEY:
                         st.info("Displaying placeholder quiz data as AI generation is not fully configured.")
 
-                    # Check if questions were actually generated or if it's placeholder with few/no questions
                     if not st.session_state.quiz_data or not st.session_state.quiz_data.get('questions'):
                          st.warning("The AI (or placeholder) did not return any questions. Try adjusting parameters or check AI configuration.")
                     
-                    st.session_state.submitted_answers = {} # Reset answers for new quiz
-                    st.session_state.show_results = False # Hide previous results
-                    st.session_state.current_topic = topic # Store current topic
+                    st.session_state.submitted_answers = {} 
+                    st.session_state.show_results = False 
+                    st.session_state.current_topic = topic 
                     st.success("Quiz generated successfully!")
                 except Exception as e:
                     st.error(f"Failed to generate quiz: {e}")
@@ -243,7 +405,7 @@ def main():
         st.subheader(f"Difficulty: {quiz['difficulty']} | Type: {question_type_options[quiz['question_type']]}")
 
         with st.expander("💡 Topic Explanation", expanded=True):
-            st.markdown(quiz['content'])
+            st.markdown(quiz.get('content', 'No explanation provided.'))
 
         st.markdown("---")
         st.subheader("❓ Questions")
@@ -258,9 +420,7 @@ def main():
 
                 if q['type'] == 'mcq':
                     options = q.get('options', [])
-                    # Ensure options are strings for display
                     options_display = [str(opt) for opt in options]
-                    # Gracefully handle if options are missing or not enough for radio
                     if options_display and len(options_display) > 0:
                         st.session_state.submitted_answers[question_key] = user_answers_form.radio(
                             "Your answer:", options_display, key=question_key, index=None
@@ -277,7 +437,7 @@ def main():
                     st.session_state.submitted_answers[question_key] = user_answers_form.radio(
                         "Your answer:", ["True", "False"], key=question_key, index=None
                     )
-                else: # Unknown type
+                else:
                      user_answers_form.markdown(f"_Unsupported question type: {q.get('type', 'Unknown')}_")
                      st.session_state.submitted_answers[question_key] = None
                 user_answers_form.markdown("---")
@@ -286,63 +446,112 @@ def main():
 
             if submit_answers_button:
                 st.session_state.show_results = True
+                # Calculate results and store them for email function
+                current_score = 0
+                current_total_questions = len(quiz['questions'])
+                current_detailed_results = []
+
+                for i_res, q_res in enumerate(quiz['questions']):
+                    q_key_res = f"q_{i_res}"
+                    submitted_ans_res = st.session_state.submitted_answers.get(q_key_res)
+                    correct_ans_res = q_res.get('answer')
+                    res_is_correct = False
+                    if submitted_ans_res is not None:
+                        if q_res['type'] == 'tf':
+                            submitted_bool_res = str(submitted_ans_res).lower() == 'true'
+                            res_is_correct = (submitted_bool_res == correct_ans_res)
+                        elif q_res['type'] == 'fill':
+                            res_is_correct = str(submitted_ans_res).strip().lower() == str(correct_ans_res).strip().lower()
+                        else: # mcq
+                            res_is_correct = str(submitted_ans_res) == str(correct_ans_res)
+                    if res_is_correct:
+                        current_score += 1
+                    
+                    current_detailed_results.append({
+                        'question_index': i_res,
+                        'question_text': q_res['question_text'],
+                        'submitted_answer': submitted_ans_res,
+                        'correct_answer': correct_ans_res,
+                        'is_correct': res_is_correct
+                    })
+                
+                st.session_state.last_quiz_score = current_score
+                st.session_state.last_quiz_total_questions = current_total_questions
+                st.session_state.last_quiz_percentage = (current_score / current_total_questions * 100) if current_total_questions > 0 else 0
+                st.session_state.last_quiz_detailed_results = current_detailed_results
 
 
         if st.session_state.show_results and quiz['questions']:
             st.markdown("---")
             st.header("📊 Quiz Results")
-            score = 0
-            total_questions_answered = len(quiz['questions'])
+            
+            # Use stored results for display
+            score_to_display = st.session_state.last_quiz_score
+            total_questions_to_display = st.session_state.last_quiz_total_questions
+            percentage_to_display = st.session_state.last_quiz_percentage
+            detailed_results_to_display = st.session_state.last_quiz_detailed_results
 
-            for i, q in enumerate(quiz['questions']):
-                question_key = f"q_{i}"
-                submitted_answer_val = st.session_state.submitted_answers.get(question_key)
-                correct_answer_val = q.get('answer')
-                is_correct = False
-
+            for result_item in detailed_results_to_display:
                 with st.container():
-                    st.markdown(f"**Question {i+1}:** {q['question_text']}")
-                    st.write(f"Your answer: `{submitted_answer_val if submitted_answer_val is not None else 'Not Answered'}`")
-
-                    # Type conversion and comparison
-                    if submitted_answer_val is not None:
-                        if q['type'] == 'tf':
-                            # Convert submitted "True"/"False" string to boolean
-                            submitted_bool = str(submitted_answer_val).lower() == 'true'
-                            is_correct = (submitted_bool == correct_answer_val)
-                        elif q['type'] == 'fill':
-                            is_correct = str(submitted_answer_val).strip().lower() == str(correct_answer_val).strip().lower()
-                        else: # mcq
-                            is_correct = str(submitted_answer_val) == str(correct_answer_val)
+                    st.markdown(f"**Question {result_item['question_index'] + 1}:** {result_item['question_text']}")
+                    submitted_display = result_item['submitted_answer'] if result_item['submitted_answer'] is not None else 'Not Answered'
+                    st.write(f"Your answer: `{submitted_display}`")
                     
-                    if is_correct:
-                        score += 1
-                        st.success(f"Correct! The answer is `{correct_answer_val}`.")
+                    correct_ans_display_val = result_item['correct_answer']
+                    correct_ans_display_text = "True" if correct_ans_display_val is True else ("False" if correct_ans_display_val is False else correct_ans_display_val)
+
+                    if result_item['is_correct']:
+                        st.success(f"Correct! The answer is `{correct_ans_display_text}`.")
                     else:
-                        st.error(f"Incorrect. The correct answer is `{correct_answer_val}`.")
+                        st.error(f"Incorrect. The correct answer is `{correct_ans_display_text}`.")
                 st.markdown("---")
 
-            st.subheader(f"🏆 Your Final Score: {score}/{total_questions_answered}")
-            percentage = (score / total_questions_answered * 100) if total_questions_answered > 0 else 0
-            st.progress(int(percentage))
-            st.markdown(f"Percentage: **{percentage:.2f}%**")
+            st.subheader(f"🏆 Your Final Score: {score_to_display}/{total_questions_to_display}")
+            st.progress(int(percentage_to_display))
+            st.markdown(f"Percentage: **{percentage_to_display:.2f}%**")
 
-            if percentage == 100:
+            if percentage_to_display == 100:
                 st.balloons()
                 st.success("🎉 Congratulations! You got a perfect score! 🎉")
-            elif percentage >= 70:
+            elif percentage_to_display >= 70:
                 st.info("👍 Great job!")
-            elif percentage >= 50:
+            elif percentage_to_display >= 50:
                 st.warning("🙂 Good effort, keep practicing!")
             else:
                 st.error("😕 Keep trying! Review the explanations and try again.")
+
+            # Email sharing section
+            st.markdown("---")
+            st.subheader("📧 Share Your Results via Email")
+            if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+                 st.warning("Email sending is not configured by the administrator (missing credentials).")
+            else:
+                email_address_st = st.text_input("Enter your email address:", key="email_results_input_st")
+                if st.button("✉️ Send Email", key="send_email_button_st"):
+                    if not email_address_st:
+                        st.error("Please enter an email address.")
+                    elif not re.match(r"[^@]+@[^@]+\.[^@]+", email_address_st): # Basic email validation
+                        st.error("Invalid email address format.")
+                    else:
+                        if 'last_quiz_detailed_results' in st.session_state and st.session_state.quiz_data:
+                            with st.spinner("Sending email..."):
+                                send_quiz_email_st(
+                                    email_address_st,
+                                    st.session_state.quiz_data, # topic, difficulty, explanation, original questions
+                                    st.session_state.last_quiz_score,
+                                    st.session_state.last_quiz_total_questions,
+                                    st.session_state.last_quiz_percentage,
+                                    st.session_state.last_quiz_detailed_results
+                                )
+                        else:
+                            st.error("No quiz results found to send. Please complete a quiz first.")
 
 
     else:
         st.info("Configure your quiz in the sidebar and click 'Generate Quiz' to start.")
         st.markdown("""
         ### How to use Quizify Streamlit:
-        1.  **Enter a Topic**: Type any subject you want a quiz on (e.g., "Python Programming", "World History", "Photosynthesis").
+        1.  **Enter a Topic**: Type any subject you want a quiz on.
         2.  **Select Question Type**: Choose from Multiple Choice, Fill in the Blank, or True/False.
         3.  **Choose Difficulty**: Pick Easy, Medium, or Hard.
         4.  **Number of Questions**: Decide how many questions you want (1-20).
@@ -356,6 +565,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-    
