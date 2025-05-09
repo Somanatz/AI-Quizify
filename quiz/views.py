@@ -17,7 +17,7 @@ def generate_quiz_content(topic: str, question_type: str, difficulty: str, num_q
     Generates quiz content (explanation and questions) using the Gemini API.
     Can handle single question type or a mix of types if question_type is 'mixed'.
     """
-    api_key = settings.GOOGLE_API_KEY
+    api_key = settings.GOOGLE_GENAI_API_KEY
     if not api_key:
         print("Error: GOOGLE_API_KEY not found in settings.")
         raise ValueError("Google API Key not configured.")
