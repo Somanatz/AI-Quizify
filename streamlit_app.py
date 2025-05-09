@@ -11,13 +11,6 @@ from email.mime.multipart import MIMEMultipart
 st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
 
 # --- Global Variables & Setup ---
-genai = None
-GOOGLE_API_KEY = None
-EMAIL_HOST_USER = None
-EMAIL_HOST_PASSWORD = None
-api_key_warning_message = None
-library_warning_message = None
-
 try:
     import google.generativeai as genai_module
     from dotenv import load_dotenv
@@ -360,9 +353,6 @@ def send_quiz_email_st(to_email, quiz_main_data, score, total_questions, percent
 
 
 def main():
-    if library_warning_message: st.warning(library_warning_message)
-    if api_key_warning_message: st.warning(api_key_warning_message)
-    if not genai or not GOOGLE_API_KEY: st.info("AI features will use placeholder data.")
 
     st.title("🧙 Quizify - AI Powered Quiz Generator")
     st.markdown("Generate quizzes on any topic using AI!")
