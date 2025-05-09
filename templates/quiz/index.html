@@ -13,11 +13,10 @@
         <div class="card form-section animate__animated animate__zoomIn">
             <div class="card-body">
                 <h2 class="card-title">Generate Your Quiz</h2>
-                <p class="card-text mb-4">Fill in the details below to create questions.</p> {# Adjusted text color via CSS #}
-                {# Use a separate ID for the generation form #}
+                <p class="card-text mb-4">Fill in the details below to create questions.</p>
                 <form id="generation-form" method="post" action="{% url 'quiz:index' %}">
                     {% csrf_token %}
-                    <div class="mb-3"> {# Bootstrap margin bottom utility #}
+                    <div class="mb-3">
                         <label for="topic" class="form-label">Topic</label>
                         <input type="text" id="topic" name="topic" class="form-control" placeholder="e.g., Photosynthesis, World War II" value="{{ form_data.topic|default:'' }}" required>
                         <div class="form-text">Enter the topic for your quiz.</div>
@@ -30,7 +29,35 @@
                             <option value="mcq" {% if form_data.question_type == 'mcq' %}selected{% endif %}>Multiple Choice (MCQ)</option>
                             <option value="fill" {% if form_data.question_type == 'fill' %}selected{% endif %}>Fill in the Blank</option>
                             <option value="tf" {% if form_data.question_type == 'tf' %}selected{% endif %}>True/False</option>
+                            <option value="mixed" {% if form_data.question_type == 'mixed' %}selected{% endif %}>Mixed Types</option>
                         </select>
+                    </div>
+
+                    {# Conditional fields for Mixed question type #}
+                    <div id="mixed-type-options" class="mb-3" style="display: {% if form_data.question_type == 'mixed' %}block{% else %}none{% endif %};">
+                        <p class="form-text mb-2">Specify number of questions for each type (total should not exceed 20):</p>
+                        <div class="row g-2">
+                            <div class="col">
+                                <label for="num_mcq" class="form-label form-label-sm">MCQs</label>
+                                <input type="number" id="num_mcq" name="num_mcq" class="form-control form-control-sm" min="0" max="20" value="{{ form_data.num_mcq|default:'2' }}">
+                            </div>
+                            <div class="col">
+                                <label for="num_fill" class="form-label form-label-sm">Fill Blanks</label>
+                                <input type="number" id="num_fill" name="num_fill" class="form-control form-control-sm" min="0" max="20" value="{{ form_data.num_fill|default:'2' }}">
+                            </div>
+                            <div class="col">
+                                <label for="num_tf" class="form-label form-label-sm">True/False</label>
+                                <input type="number" id="num_tf" name="num_tf" class="form-control form-control-sm" min="0" max="20" value="{{ form_data.num_tf|default:'1' }}">
+                            </div>
+                        </div>
+                        <div id="total-mixed-questions-display" class="form-text mt-2">Total: <span id="mixed-total-count">0</span> questions.</div>
+                    </div>
+
+
+                    <div class="mb-3" id="single-type-num-questions-container" style="display: {% if form_data.question_type == 'mixed' %}none{% else %}block{% endif %};">
+                        <label for="num_questions" class="form-label">Number of Questions</label>
+                        <input type="number" id="num_questions" name="num_questions" class="form-control" min="1" max="20" value="{{ form_data.num_questions|default:'5' }}">
+                        <div class="form-text">Enter the number of questions (1-20).</div>
                     </div>
 
                     <div class="mb-3">
@@ -43,14 +70,7 @@
                         </select>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="num_questions" class="form-label">Number of Questions</label>
-                        <input type="number" id="num_questions" name="num_questions" class="form-control" min="1" max="100" value="{{ form_data.num_questions|default:'5' }}" required>
-                        <div class="form-text">Enter the number of questions.</div>
-                    </div>
-
-                    <div class="d-grid"> {# Bootstrap utility for full-width button #}
-                         {# Add spinner support in JS #}
+                    <div class="d-grid">
                          <button type="submit" class="btn btn-primary btn-lg">Generate Questions</button>
                     </div>
                 </form>
@@ -62,7 +82,6 @@
     <div class="col-lg-8 col-md-7">
         {# --- Error Display --- #}
         {% if error %}
-            {# Use different animation for error #}
             <div class="alert alert-danger animate__animated animate__shakeX" role="alert">
                 <h4 class="alert-heading">Error Generating Quiz</h4>
                 <p>{{ error }}</p>
@@ -73,17 +92,18 @@
 
         {# --- Quiz Container (Starts Hidden, JS reveals) --- #}
         {% if quiz_result %}
-            <div id="quiz-container" class="card" style="display: none;"> {# Start hidden, JS adds 'visible' #}
+            <div id="quiz-container" class="card" style="display: none;">
                  <div class="card-body">
                     <h2 class="card-title">Generated Quiz</h2>
-                    <p class="card-subtitle mb-3"> {# Adjusted text color via CSS #}
+                    <p class="card-subtitle mb-3">
                         <strong>Topic:</strong> {{ quiz_result.topic }} | <strong>Difficulty:</strong> {{ quiz_result.difficulty }}
+                        {% if quiz_result.question_type_display %}
+                            | <strong>Type:</strong> {{ quiz_result.question_type_display }}
+                        {% endif %}
                     </p>
 
                     <h3 class="mt-4">Explanation</h3>
                     <div class="explanation-box">
-                         {# Use safe filter and linebreaks if explanation might contain HTML #}
-                         {# Otherwise, just linebreaksbr is fine for plain text #}
                         {{ quiz_result.content|linebreaksbr }}
                     </div>
 
@@ -92,15 +112,12 @@
                     <h3 class="mb-3">Questions</h3>
                     {% if quiz_result.questions %}
                         <form id="quiz-form" class="questions-list" data-quiz-id="{{ quiz_result.quiz_id }}">
-                            {# CSRF token needed for AJAX POST #}
                             {% csrf_token %}
-
                             {% for question in quiz_result.questions %}
-                            <div class="question-card {% if forloop.first %}active{% else %}''{% endif %}" id="question-card-{{ forloop.counter }}" data-question-index="{{ forloop.counter0 }}" {% if not forloop.first %}style="visibility: hidden; display: block;"{% endif %}> {# Keep non-active displayed for height calc, but hidden #}
-                                <h4>Question {{ forloop.counter }} of {{ quiz_result.questions|length }}</h4>
+                            <div class="question-card {% if forloop.first %}active{% else %}''{% endif %}" id="question-card-{{ forloop.counter }}" data-question-index="{{ forloop.counter0 }}" {% if not forloop.first %}style="visibility: hidden; display: block;"{% endif %}>
+                                <h4>Question {{ forloop.counter }} of {{ quiz_result.questions|length }} <small class="text-muted">({{ question.type|upper }})</small></h4>
                                 <p class="question-text"><strong>{{ question.question_text|linebreaksbr }}</strong></p>
 
-                                {# --- Display based on question type --- #}
                                 <div class="options-container mb-3">
                                     {% if question.type == 'mcq' %}
                                         {% for option in question.options %}
@@ -109,7 +126,7 @@
                                             <label class="form-check-label" for="q{{ forloop.parentloop.counter }}_opt{{ forloop.counter }}">{{ option }}</label>
                                         </div>
                                         {% empty %}
-                                        <p><small>No options provided.</small></p> {# Adjusted text color via CSS #}
+                                        <p><small>No options provided.</small></p>
                                         {% endfor %}
                                     {% elif question.type == 'fill' %}
                                          <input type="text" placeholder="Your answer here..." name="q{{ forloop.counter }}" class="form-control fill-blank-input" data-question-type="fill" required>
@@ -123,19 +140,14 @@
                                             <label class="form-check-label" for="q{{ forloop.counter }}_false">False</label>
                                         </div>
                                     {% else %}
-                                        <p><small>Unsupported question type: {{ question.type }}</small></p> {# Adjusted text color via CSS #}
+                                        <p><small>Unsupported question type: {{ question.type }}</small></p>
                                     {% endif %}
                                 </div>
 
-                                {# Validation error message specific to this question #}
                                 <div class="validation-error alert alert-warning mt-2" style="display: none;" role="alert">
                                      Please select or enter an answer.
                                 </div>
 
-                                {# Feedback div - Not used in sequential mode until results #}
-                                {# <div class="feedback" style="display: none;"></div> #}
-
-                                {# Navigation Buttons #}
                                 <div class="navigation-buttons mt-4">
                                      {% if not forloop.last %}
                                         <button type="button" class="btn btn-primary btn-next">Next Question &rarr;</button>
@@ -143,40 +155,32 @@
                                         <button type="button" class="btn btn-success btn-submit-quiz">Submit Quiz</button>
                                      {% endif %}
                                 </div>
-
-                            </div> {# End question-card #}
+                            </div>
                             {% endfor %}
-
-                            {# General error message area for AJAX submission errors #}
                             <div id="quiz-submission-error" class="alert alert-danger mt-3" style="display: none;" role="alert"></div>
-
                         </form>
                     {% else %}
-                        <p>No questions were generated for this topic. Try adjusting the topic or difficulty.</p> {# Adjusted text color via CSS #}
+                        <p>No questions were generated for this topic. Try adjusting the topic or difficulty.</p>
                     {% endif %}
-                 </div> {# End card-body #}
-            </div> {# End quiz-container card #}
-        {% endif %} {# End if quiz_result #}
+                 </div>
+            </div>
+        {% endif %}
 
-        {# --- Score Container (Starts Hidden, JS reveals) --- #}
-        {# This needs to be outside the 'if quiz_result' block if JS populates it after submission #}
-        <div id="score-container" class="card" style="display: none;"> {# Start hidden, JS adds 'visible' #}
+        <div id="score-container" class="card" style="display: none;">
              <div class="card-body">
                 <h2 class="card-title">Quiz Results</h2>
-                <p class="card-subtitle mb-3"> {# Adjusted text color via CSS #}
+                <p class="card-subtitle mb-3">
                     <strong>Topic:</strong> <span id="results-topic">N/A</span> | <strong>Difficulty:</strong> <span id="results-difficulty">N/A</span>
                 </p>
                 <p class="fs-5">Your Score: <strong id="final-score" class="text-primary">0</strong> out of <strong id="total-questions" class="text-primary">0</strong> (<strong id="score-percentage" class="text-primary">0</strong>%)</p>
                 <hr>
                 <h3 class="mt-4">Detailed Feedback Summary</h3>
                 <div id="detailed-results">
-                    {# JS will clone the template below and insert here #}
-                    <p>Loading results...</p> {# Adjusted text color via CSS #} {# Placeholder while loading #}
+                    <p>Loading results...</p>
                 </div>
                 <button type="button" id="try-again-btn" class="btn btn-secondary mt-4">Try Another Quiz</button>
                 
                 <hr class="my-4">
-                {# --- Email Form --- #}
                 <h3 class="mt-4">Send Results to Email</h3>
                 <form id="email-quiz-form" class="mt-3">
                     <div class="input-group mb-3">
@@ -185,50 +189,40 @@
                     </div>
                     <div id="email-status-message" class="form-text" style="display: none;"></div>
                 </form>
+             </div>
+        </div>
 
-             </div> {# End card-body #}
-        </div> {# End score-container card #}
-
-
-        {# --- Placeholder (Shown only if no error AND no quiz_result) --- #}
         {% if not error and not quiz_result %}
-             {# Apply animation to placeholder #}
              <div class="card placeholder animate__animated animate__fadeIn">
                 <div class="card-body">
                     <h2 class="card-title">Your generated quiz will appear here.</h2>
-                    <p class="card-text">Fill out the form and click "Generate Questions".</p> {# Removed text-muted, inherits from .placeholder p now #}
+                    <p class="card-text">Fill out the form and click "Generate Questions".</p>
                  </div>
              </div>
         {% endif %}
-    </div> {# End results column #}
-</div> {# End row #}
+    </div>
+</div>
 
-{# --- Hidden Template for Detailed Result Item --- #}
 <template id="result-item-template">
-    {# Add 'correct' or 'incorrect' class here via JS #}
-    <div class="result-item"> {# JS adds animation delay #}
+    <div class="result-item">
          <h4 class="result-q-header">Question <span class="result-q-number"></span></h4>
          <p class="question-text"><strong><span class="result-q-text"></span></strong></p>
          <div class="feedback">
             <p>Your answer: <span class="result-submitted"></span></p>
             <p>Correct answer: <span class="result-correct"></span></p>
-            <p class="result-status"></p> {# JS sets Correct/Incorrect text #}
+            <p class="result-status"></p>
          </div>
     </div>
 </template>
-
 {% endblock %}
 
 {% block extra_scripts %}
-{# Pass URLs and CSRF token needed by script.js #}
 <script>
     const CSRF_TOKEN = '{{ csrf_token }}';
     const CHECK_ANSWERS_URL = '{% url "quiz:check_answers" %}';
-    const GENERATE_URL = '{% url "quiz:index" %}'; // URL to redirect for 'Try Again'
+    const GENERATE_URL = '{% url "quiz:index" %}';
     const SEND_EMAIL_URL = '{% url "quiz:send_quiz_email" %}';
-    // No need for TOTAL_QUESTIONS here if JS calculates it from the DOM or response
 </script>
 {% endblock %}
-
 
     
