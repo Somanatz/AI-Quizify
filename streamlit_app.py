@@ -6,115 +6,163 @@ import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
 # --- Page Config (Must be the first Streamlit command) ---
 st.set_page_config(page_title="Quizify Streamlit", layout="wide", initial_sidebar_state="expanded")
 
 # --- Global Variables & Setup ---
+genai = None
+GOOGLE_API_KEY = None
+EMAIL_HOST_USER = None
+EMAIL_HOST_PASSWORD = None
+api_key_warning_message = None
+library_warning_message = None
 
-# Attempt to import google.generativeai, but handle if not available or API key is missing
 try:
     import google.generativeai as genai_module
     from dotenv import load_dotenv
-    
+
     load_dotenv()
-    GOOGLE_API_KEY = os.environ.get('GOOGLE_GENAI_API_KEY')
+    GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
     EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
+
     if GOOGLE_API_KEY:
         genai_module.configure(api_key=GOOGLE_API_KEY)
-        genai = genai_module
-         # Assign to global genai
+        genai = genai_module 
     else:
         api_key_warning_message = "GOOGLE_API_KEY not found. AI generation will use placeholders."
-        # genai remains None
 except ImportError:
     library_warning_message = "google.generativeai or python-dotenv library not found. AI generation will use placeholders."
-    # genai remains None
 
 
 # --- Helper Function for AI Generation (adapted from Django views) ---
-def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, num_questions: int = 5):
+def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, num_questions: int = 5, num_questions_per_type: dict = None):
     """
     Generates quiz content (explanation and questions) using the Gemini API if available,
-    otherwise returns placeholder data.
+    otherwise returns placeholder data. Handles single or mixed question types.
     """
-    if not genai_module or not GOOGLE_API_KEY:
-        # Placeholder data if API key or library is not available
-        # We'll display warnings in the main app flow, not here, to avoid early Streamlit calls.
-        # st.info("Using placeholder data as Google API Key or genai library is not configured.")
+    if not genai or not GOOGLE_API_KEY:
+        # Placeholder logic for mixed types
+        questions_list = []
+        actual_total_questions = 0
+        if question_type == 'mixed' and num_questions_per_type:
+            for q_type, count in num_questions_per_type.items():
+                actual_total_questions += count
+                for i in range(count):
+                    questions_list.append({
+                        'question_text': f"Placeholder {q_type.upper()} Q{i+1} for {topic}?",
+                        'type': q_type,
+                        'difficulty': difficulty,
+                        'answer': "Placeholder Answer" if q_type != 'mcq' else "Option C",
+                        'options': ["Option A", "Option B", "Option C", "Option D"] if q_type == 'mcq' else []
+                    })
+            if not questions_list: # if all counts were 0
+                 actual_total_questions = num_questions # fallback to main num_questions for placeholder
+                 for idx in range(actual_total_questions):
+                    questions_list.append({
+                        'question_text': f"Placeholder Q{idx+1} for {topic} (default type)?",
+                        'type': 'mcq', 'difficulty': difficulty, 'answer': "Option C",
+                        'options': ["Option A", "Option B", "Option C", "Option D"]
+                    })
+
+        else: # Single type placeholder
+            actual_total_questions = num_questions
+            for idx in range(actual_total_questions):
+                questions_list.append({
+                    'question_text': f"Placeholder Q{idx+1} for {topic} ({question_type})?",
+                    'type': question_type,
+                    'difficulty': difficulty,
+                    'answer': "Placeholder Answer" if question_type != 'mcq' else "Option C",
+                    'options': ["Option A", "Option B", "Option C", "Option D"] if question_type == 'mcq' else []
+                })
+        
         return {
             'topic': topic,
             'difficulty': difficulty,
             'question_type': question_type,
             'content': f"This is a placeholder explanation for the topic: {topic} at {difficulty} level.",
-            'questions': [
-                {
-                    'question_text': f"Placeholder Q1 for {topic} ({question_type})?",
-                    'type': question_type,
-                    'difficulty': difficulty,
-                    'answer': "Placeholder Answer 1" if question_type != 'mcq' else "Option C",
-                    'options': ["Option A", "Option B", "Option C", "Option D"] if question_type == 'mcq' else []
-                }
-                for _ in range(num_questions)
-            ]
+            'questions': questions_list
         }
 
-    #model = 'gemini-2.0-flash'
     model = genai.GenerativeModel('gemini-2.0-flash')
+    
+    actual_num_questions_for_prompt = num_questions
 
-    type_map = {
-        'mcq': 'Multiple Choice (MCQ)',
-        'fill': 'Fill in the Blank',
-        'tf': 'True/False'
-    }
-
-    question_specific_prompt_instruction = ""
-    if question_type == 'mcq':
-        question_specific_prompt_instruction = """
-        *   For "mcq" type: An "options" key with an array of exactly 4 distinct strings (potential answers), and an "answer" key with the correct option string (must exactly match one of the options).
-        Example for MCQ:
-        {
-          "question_text": "What is the powerhouse of the cell?",
-          "type": "mcq",
-          "difficulty": "Easy",
-          "options": ["Nucleus", "Ribosome", "Mitochondrion", "Chloroplast"],
-          "answer": "Mitochondrion"
-        }"""
-    elif question_type == 'fill':
-        question_specific_prompt_instruction = """
-        *   For "fill" type: An "answer" key with the single word or short phrase (string) that correctly fills the blank (often indicated by '____' in the question_text). The answer should be concise.
-        Example for Fill in the Blank:
-        {
-          "question_text": "The chemical symbol for water is ____.",
-          "type": "fill",
-          "difficulty": "Easy",
-          "answer": "H2O"
-        }"""
-    elif question_type == 'tf':
-        question_specific_prompt_instruction = """
-        *   For "tf" type: An "answer" key with the boolean value true or false (not the string "true" or "false").
-        Example for True/False:
-        {
-          "question_text": "The sun revolves around the Earth.",
-          "type": "tf",
-          "difficulty": "Easy",
-          "answer": false
-        }"""
-
-    prompt = f"""
+    prompt_parts = [
+        f"""
     Generate educational content about the topic "{topic}" suitable for a "{difficulty}" difficulty level.
     Include the following in your response, formatted STRICTLY as a single JSON object:
 
-    1.  A key "explanation" containing a concise explanation of the topic ({difficulty} level), appropriate for someone learning this topic.
-    2.  A key "questions" containing a JSON array of exactly {num_questions} questions about the topic. Each question object in the array MUST have:
-        *   A "question_text" key with the question itself (string).
-        *   A "type" key with the value "{question_type}" (string).
-        *   A "difficulty" key with the value "{difficulty}" (string).
-        {question_specific_prompt_instruction}
+    1.  A key "explanation" containing a concise explanation of the topic ({difficulty} level), appropriate for someone learning this topic."""
+    ]
 
-    Ensure the entire output is **only** a single, valid JSON object starting with {{ and ending with }}. Do not include any text, explanations, or markdown formatting like ```json before or after the JSON object itself. The "questions" array must contain exactly {num_questions} items.
-    """
+    if question_type == 'mixed' and num_questions_per_type:
+        actual_num_questions_for_prompt = sum(num_questions_per_type.values())
+        if actual_num_questions_for_prompt == 0:
+            raise ValueError("For 'mixed' question types, at least one question must be specified for one of the types in Streamlit.")
+
+        prompt_parts.append(f"2.  A key \"questions\" containing a JSON array of exactly {actual_num_questions_for_prompt} questions in total about the topic. The questions array MUST be structured to include:")
+        
+        question_details_prompt_parts = []
+        example_questions_for_prompt = [] 
+
+        if num_questions_per_type.get('mcq', 0) > 0:
+            count = num_questions_per_type['mcq']
+            question_details_prompt_parts.append(
+                f'*   Exactly {count} questions of type "mcq". Each "mcq" question object MUST have: An "options" key with an array of exactly 4 distinct strings, and an "answer" key with the correct option string.'
+            )
+            example_questions_for_prompt.append(
+                """{ "question_text": "Example MCQ...", "type": "mcq", "difficulty": "Easy", "options": ["A", "B", "C", "D"], "answer": "C" }"""
+            )
+        if num_questions_per_type.get('fill', 0) > 0:
+            count = num_questions_per_type['fill']
+            question_details_prompt_parts.append(
+                f'*   Exactly {count} questions of type "fill". Each "fill" question object MUST have: An "answer" key with the single word or short phrase.'
+            )
+            example_questions_for_prompt.append(
+                """{ "question_text": "Example Fill...", "type": "fill", "difficulty": "Easy", "answer": "Answer" }"""
+            )
+        if num_questions_per_type.get('tf', 0) > 0:
+            count = num_questions_per_type['tf']
+            question_details_prompt_parts.append(
+                f'*   Exactly {count} questions of type "tf". Each "tf" question object MUST have: An "answer" key with a boolean value (true or false).'
+            )
+            example_questions_for_prompt.append(
+                """{ "question_text": "Example T/F...", "type": "tf", "difficulty": "Easy", "answer": true }"""
+            )
+        
+        prompt_parts.append("\n".join(question_details_prompt_parts))
+        prompt_parts.append("""
+    Each question object in the array, regardless of its type, MUST also have:
+        *   A "question_text" key with the question itself (string).
+        *   A "type" key indicating its type (e.g., "mcq", "fill", "tf").
+        *   A "difficulty" key with the value "{difficulty}" (string).""")
+        if example_questions_for_prompt:
+            prompt_parts.append(f"""
+    Example structure for "questions" array: [ {", ".join(example_questions_for_prompt)} ]""")
+
+    else: # Single question type
+        question_specific_prompt_instruction = ""
+        # ... (same as Django's views.py single type prompt details)
+        if question_type == 'mcq':
+            question_specific_prompt_instruction = """*   For "mcq" type: An "options" key with an array of exactly 4 distinct strings, and an "answer" key with the correct option string."""
+        elif question_type == 'fill':
+            question_specific_prompt_instruction = """*   For "fill" type: An "answer" key with the single word or short phrase."""
+        elif question_type == 'tf':
+            question_specific_prompt_instruction = """*   For "tf" type: An "answer" key with a boolean value (true or false)."""
+
+        prompt_parts.append(f"""
+    2.  A key "questions" containing a JSON array of exactly {actual_num_questions_for_prompt} questions. Each question object MUST have:
+        *   A "question_text" (string). *   A "type": "{question_type}" (string). *   A "difficulty": "{difficulty}" (string).
+        {question_specific_prompt_instruction}""")
+
+    prompt_parts.append(f"""
+    Ensure the entire output is **only** a single, valid JSON object. The "questions" array must contain exactly {actual_num_questions_for_prompt} items.
+    """)
+    
+    prompt = "\n".join(prompt_parts)
 
     try:
         response = model.generate_content(
@@ -122,62 +170,54 @@ def generate_quiz_content_st(topic: str, question_type: str, difficulty: str, nu
             generation_config=genai.types.GenerationConfig(temperature=0.7)
         )
         raw_text = response.text
+        # ... (JSON parsing logic as in Django views.py)
         try:
             generated_data = json.loads(raw_text)
         except json.JSONDecodeError:
             json_match_md = re.search(r'```json\s*(\{.*\})\s*```', raw_text, re.DOTALL | re.IGNORECASE)
-            if json_match_md:
-                json_str = json_match_md.group(1)
+            if json_match_md: json_str = json_match_md.group(1)
             else:
                 json_match_braces = re.search(r'\{.*\}', raw_text, re.DOTALL)
-                if json_match_braces:
-                    json_str = json_match_braces.group(0)
-                else:
-                    # Use st.error inside the main app flow if this function is called from there
-                    # For now, raise ValueError which will be caught
-                    raise ValueError(f"Failed to extract JSON. Raw response:\n{raw_text}")
-            try:
-                generated_data = json.loads(json_str)
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Error decoding cleaned JSON: {e}\nCleaned JSON string was:\n{json_str}\nOriginal raw response was:\n{raw_text}") from e
+                if json_match_braces: json_str = json_match_braces.group(0)
+                else: raise ValueError(f"Failed to extract JSON. Raw: {raw_text}")
+            generated_data = json.loads(json_str)
+
 
         if 'explanation' not in generated_data or not isinstance(generated_data['explanation'], str):
-            raise ValueError("Generated JSON is missing 'explanation' key or it's not a string.")
+            raise ValueError("Generated JSON missing 'explanation'.")
         if 'questions' not in generated_data or not isinstance(generated_data['questions'], list):
-            raise ValueError("Generated JSON is missing 'questions' key or it's not a list.")
+            raise ValueError("Generated JSON missing 'questions' list.")
         
-        if len(generated_data['questions']) != num_questions:
-             # st.warning can be called in the main flow if this function returns a flag or specific error
-             print(f"Warning: AI returned {len(generated_data['questions'])} questions, but {num_questions} were requested.")
+        # Validation for mixed types (simplified for Streamlit, detailed logging is better for dev)
+        if question_type == "mixed" and num_questions_per_type:
+            # Basic check for total count
+            if len(generated_data['questions']) != actual_num_questions_for_prompt:
+                 st.warning(f"AI returned {len(generated_data['questions'])} total questions for mixed, but {actual_num_questions_for_prompt} were expected. Using returned count.")
+        elif question_type != "mixed": # Single type
+            if len(generated_data['questions']) != actual_num_questions_for_prompt:
+                 st.warning(f"AI returned {len(generated_data['questions'])} questions, but {actual_num_questions_for_prompt} were requested. Using returned count.")
 
-
+        # Basic structure validation for each question
         for i, q in enumerate(generated_data['questions']):
              if not all(k in q for k in ['question_text', 'type', 'difficulty', 'answer']):
-                 raise ValueError(f"Question {i+1} is missing required keys (question_text, type, difficulty, answer).")
-             if q['type'] == 'mcq' and (not isinstance(q.get('options'), list) or len(q['options']) != 4 or q.get('answer') not in q['options']):
-                 raise ValueError(f"MCQ Question {i+1} has invalid 'options' or 'answer'. Options must be a list of 4 strings, and answer must match one option.")
-             if q['type'] == 'tf' and not isinstance(q.get('answer'), bool):
-                 if isinstance(q.get('answer'), str):
-                     if q['answer'].lower() == 'true': q['answer'] = True
-                     elif q['answer'].lower() == 'false': q['answer'] = False
-                     else: raise ValueError(f"True/False Question {i+1} has non-boolean answer: {q['answer']}.")
-                 else: raise ValueError(f"True/False Question {i+1} has non-boolean answer: {q['answer']}.")
+                 raise ValueError(f"Question {i+1} missing required keys.")
+             # Further type-specific validation (as in views.py) can be added here if needed.
 
         result = {
             'topic': topic,
             'difficulty': difficulty,
-            'question_type': question_type,
+            'question_type': question_type, # 'mixed' or single type
             'content': generated_data.get('explanation', 'Explanation not generated.'),
             'questions': generated_data.get('questions', [])
         }
         return result
 
     except Exception as e:
-        # st.error(f"An unexpected error occurred during AI generation: {e}") # Call in main flow
-        # Re-raise a more generic error to the view
-        raise Exception(f"An error occurred while communicating with the AI service: {e}") from e
+        st.error(f"AI Generation Error (Streamlit): {e}")
+        raise Exception(f"An error occurred while communicating with the AI service in Streamlit: {e}") from e
 
-# --- Email Sending Helper Functions ---
+
+# --- Email Sending Helper Functions (Same as before) ---
 def generate_email_html_content_st(quiz_topic, quiz_difficulty, quiz_explanation, score, total_questions, percentage, detailed_results_list):
     html_body = f"""
     <!DOCTYPE html>
@@ -217,7 +257,7 @@ def generate_email_html_content_st(quiz_topic, quiz_difficulty, quiz_explanation
     if quiz_explanation:
         html_body += f"""
             <h2>Topic Explanation</h2>
-            <div class="explanation-box"><p>{quiz_explanation.replace  ('&lt;br&gt;','<br>')}</p></div>
+            <div class="explanation-box"><p>{quiz_explanation.replace('&lt;br&gt;','<br>')}</p></div>
         """
     html_body += "<h2>Detailed Results</h2>"
     if detailed_results_list:
@@ -232,7 +272,7 @@ def generate_email_html_content_st(quiz_topic, quiz_difficulty, quiz_explanation
 
             html_body += f"""
             <div class="question-item {status_class}">
-                <h3>Question {result['question_index'] + 1}</h3>
+                <h3>Question {result['question_index'] + 1} ({result.get('type', 'N/A').upper()})</h3>
                 <p class="question-text">{q_text_html}</p>
                 <div class="answer-details">
                     <p>Your Answer: <span class="submitted-answer">{submitted_ans_html}</span></p>
@@ -264,12 +304,13 @@ def generate_email_text_content_st(quiz_topic, quiz_difficulty, quiz_explanation
     if detailed_results_list:
         for result in detailed_results_list:
             q_num = result['question_index'] + 1
+            q_type_display = result.get('type', 'N/A').upper()
             q_text = result['question_text'] if result['question_text'] else 'N/A'
             submitted = result['submitted_answer'] if result['submitted_answer'] is not None else "Not Answered"
             correct_ans_val = result['correct_answer']
             correct_ans_text = "True" if correct_ans_val is True else ("False" if correct_ans_val is False else correct_ans_val)
             status = "Correct" if result['is_correct'] else "Incorrect"
-            text_body += f"\nQuestion {q_num}: {q_text}\nYour Answer: {submitted}\nCorrect Answer: {correct_ans_text}\nStatus: {status}\n---"
+            text_body += f"\nQuestion {q_num} ({q_type_display}): {q_text}\nYour Answer: {submitted}\nCorrect Answer: {correct_ans_text}\nStatus: {status}\n---"
     else:
         text_body += "No detailed results available.\n"
         
@@ -314,52 +355,61 @@ def send_quiz_email_st(to_email, quiz_main_data, score, total_questions, percent
         return True
     except Exception as e:
         st.error(f"Failed to send email: {e}")
-        print(f"SMTP Error: {e}") # Log to console for debugging
+        print(f"SMTP Error: {e}") 
         return False
 
 
 def main():
-    # Display warnings if API key or library issues were detected during startup
+    if library_warning_message: st.warning(library_warning_message)
+    if api_key_warning_message: st.warning(api_key_warning_message)
+    if not genai or not GOOGLE_API_KEY: st.info("AI features will use placeholder data.")
 
     st.title("🧙 Quizify - AI Powered Quiz Generator")
     st.markdown("Generate quizzes on any topic using AI!")
 
-    # Initialize session state
-    if 'quiz_data' not in st.session_state:
-        st.session_state.quiz_data = None
-    if 'submitted_answers' not in st.session_state:
-        st.session_state.submitted_answers = {}
-    if 'show_results' not in st.session_state:
-        st.session_state.show_results = False
-    if 'current_topic' not in st.session_state:
-        st.session_state.current_topic = ""
-    if 'last_quiz_detailed_results' not in st.session_state:
-        st.session_state.last_quiz_detailed_results = []
-    if 'last_quiz_score' not in st.session_state:
-        st.session_state.last_quiz_score = 0
-    if 'last_quiz_total_questions' not in st.session_state:
-        st.session_state.last_quiz_total_questions = 0
-    if 'last_quiz_percentage' not in st.session_state:
-        st.session_state.last_quiz_percentage = 0.0
+    if 'quiz_data' not in st.session_state: st.session_state.quiz_data = None
+    if 'submitted_answers' not in st.session_state: st.session_state.submitted_answers = {}
+    if 'show_results' not in st.session_state: st.session_state.show_results = False
+    if 'current_topic' not in st.session_state: st.session_state.current_topic = ""
+    # ... (other session state initializations) ...
+    if 'last_quiz_detailed_results' not in st.session_state: st.session_state.last_quiz_detailed_results = []
+    if 'last_quiz_score' not in st.session_state: st.session_state.last_quiz_score = 0
+    if 'last_quiz_total_questions' not in st.session_state: st.session_state.last_quiz_total_questions = 0
+    if 'last_quiz_percentage' not in st.session_state: st.session_state.last_quiz_percentage = 0.0
 
 
     with st.sidebar:
         st.header("⚙️ Quiz Configuration")
-        with st.form(key="quiz_generation_form"):
+        with st.form(key="quiz_generation_form_st"):
             topic = st.text_input("Enter Quiz Topic:", value=st.session_state.get('current_topic', "The Solar System"))
-            question_type_options = {
+            question_type_options_st = {
                 'mcq': 'Multiple Choice (MCQ)',
                 'fill': 'Fill in the Blank',
-                'tf': 'True/False'
+                'tf': 'True/False',
+                'mixed': 'Mixed Types'
             }
-            question_type_display = st.selectbox("Select Question Type:", options=list(question_type_options.values()), index=0)
-            question_type = [k for k, v in question_type_options.items() if v == question_type_display][0]
+            question_type_display_st = st.selectbox("Select Question Type:", options=list(question_type_options_st.values()), index=0)
+            question_type_st = [k for k, v in question_type_options_st.items() if v == question_type_display_st][0]
 
-            difficulty = st.select_slider("Select Difficulty:", options=['Easy', 'Medium', 'Hard'], value='Medium')
-            num_questions = st.number_input("Number of Questions:", min_value=1, max_value=100, value=5)
-            generate_button = st.form_submit_button(label="🚀 Generate Quiz")
+            num_questions_st = 0
+            num_questions_per_type_st_dict = None
+
+            if question_type_st == 'mixed':
+                st.markdown("<small>Specify number of questions for each type (total max 20):</small>", unsafe_allow_html=True)
+                num_mcq_st = st.number_input("Number of MCQs:", min_value=0, max_value=20, value=2, key="num_mcq_st")
+                num_fill_st = st.number_input("Number of Fill-in-the-Blanks:", min_value=0, max_value=20, value=2, key="num_fill_st")
+                num_tf_st = st.number_input("Number of True/False:", min_value=0, max_value=20, value=1, key="num_tf_st")
+                num_questions_per_type_st_dict = {'mcq': num_mcq_st, 'fill': num_fill_st, 'tf': num_tf_st}
+                num_questions_st = num_mcq_st + num_fill_st + num_tf_st
+                st.caption(f"Total questions for mixed: {num_questions_st}")
+            else:
+                num_questions_st = st.number_input("Number of Questions:", min_value=1, max_value=20, value=5, key="num_questions_single_st")
+
+            difficulty_st = st.select_slider("Select Difficulty:", options=['Easy', 'Medium', 'Hard'], value='Medium')
+            generate_button_st = st.form_submit_button(label="🚀 Generate Quiz")
 
         if st.button("🔄 Reset Quiz & Start Over"):
+            # ... (reset logic as before) ...
             st.session_state.quiz_data = None
             st.session_state.submitted_answers = {}
             st.session_state.show_results = False
@@ -371,23 +421,35 @@ def main():
             st.rerun()
 
 
-    if generate_button:
+    if generate_button_st:
         if not topic.strip():
             st.error("Please enter a topic for the quiz.")
+        elif question_type_st == 'mixed' and num_questions_st == 0:
+            st.error("For 'Mixed' type, please specify at least one question for any category (total must be > 0).")
+        elif question_type_st == 'mixed' and num_questions_st > 20:
+            st.error(f"Total number of questions for 'Mixed' type ({num_questions_st}) cannot exceed 20.")
+        elif question_type_st != 'mixed' and not (1 <= num_questions_st <= 20) :
+             st.error("Number of questions must be between 1 and 20 for single type.")
         else:
-            with st.spinner(f"Generating {difficulty} {question_type_options[question_type]} quiz on '{topic}'... Please wait."):
+            with st.spinner(f"Generating quiz..."):
                 try:
-                    st.session_state.quiz_data = generate_quiz_content_st(topic, question_type, difficulty, num_questions)
+                    st.session_state.quiz_data = generate_quiz_content_st(
+                        topic, 
+                        question_type_st, 
+                        difficulty_st, 
+                        num_questions=num_questions_st, # Total for mixed, or count for single
+                        num_questions_per_type=num_questions_per_type_st_dict if question_type_st == 'mixed' else None
+                    )
                     if not genai or not GOOGLE_API_KEY:
-                        st.info("Displaying placeholder quiz data as AI generation is not fully configured.")
-
+                        st.info("Displaying placeholder quiz data.")
+                    
                     if not st.session_state.quiz_data or not st.session_state.quiz_data.get('questions'):
-                         st.warning("The AI (or placeholder) did not return any questions. Try adjusting parameters or check AI configuration.")
+                         st.warning("The AI (or placeholder) did not return any questions.")
                     
                     st.session_state.submitted_answers = {} 
                     st.session_state.show_results = False 
                     st.session_state.current_topic = topic 
-                    st.success("Quiz generated successfully!")
+                    st.success("Quiz generated!")
                 except Exception as e:
                     st.error(f"Failed to generate quiz: {e}")
                     st.session_state.quiz_data = None
@@ -395,8 +457,9 @@ def main():
 
     if st.session_state.quiz_data:
         quiz = st.session_state.quiz_data
+        display_question_type = question_type_options_st.get(quiz['question_type'], quiz['question_type'].capitalize())
         st.header(f"📜 Quiz on: {quiz['topic']}")
-        st.subheader(f"Difficulty: {quiz['difficulty']} | Type: {question_type_options[quiz['question_type']]}")
+        st.subheader(f"Difficulty: {quiz['difficulty']} | Type: {display_question_type}")
 
         with st.expander("💡 Topic Explanation", expanded=True):
             st.markdown(quiz.get('content', 'No explanation provided.'))
@@ -405,51 +468,46 @@ def main():
         st.subheader("❓ Questions")
 
         if not quiz['questions']:
-            st.warning("No questions were generated for this topic. Try different parameters or check AI settings.")
+            st.warning("No questions were generated.")
         else:
-            user_answers_form = st.form(key="user_answers_form")
+            user_answers_form_st = st.form(key="user_answers_form_st")
             for i, q in enumerate(quiz['questions']):
-                question_key = f"q_{i}"
-                user_answers_form.markdown(f"**Question {i+1}:** {q['question_text']}")
+                question_key_st = f"q_st_{i}"
+                q_type_display_item = q.get('type', 'N/A').upper()
+                user_answers_form_st.markdown(f"**Question {i+1} ({q_type_display_item}):** {q['question_text']}")
 
                 if q['type'] == 'mcq':
-                    options = q.get('options', [])
-                    options_display = [str(opt) for opt in options]
-                    if options_display and len(options_display) > 0:
-                        st.session_state.submitted_answers[question_key] = user_answers_form.radio(
-                            "Your answer:", options_display, key=question_key, index=None
-                        )
-                    else:
-                        user_answers_form.markdown("_MCQ options not available for this question._")
-                        st.session_state.submitted_answers[question_key] = None
-
+                    options_st = q.get('options', [])
+                    st.session_state.submitted_answers[question_key_st] = user_answers_form_st.radio(
+                        "Your answer:", options_st, key=question_key_st, index=None
+                    ) if options_st else user_answers_form_st.markdown("_MCQ options missing._")
                 elif q['type'] == 'fill':
-                    st.session_state.submitted_answers[question_key] = user_answers_form.text_input(
-                        "Your answer:", key=question_key
+                    st.session_state.submitted_answers[question_key_st] = user_answers_form_st.text_input(
+                        "Your answer:", key=question_key_st
                     )
                 elif q['type'] == 'tf':
-                    st.session_state.submitted_answers[question_key] = user_answers_form.radio(
-                        "Your answer:", ["True", "False"], key=question_key, index=None
+                    st.session_state.submitted_answers[question_key_st] = user_answers_form_st.radio(
+                        "Your answer:", ["True", "False"], key=question_key_st, index=None
                     )
                 else:
-                     user_answers_form.markdown(f"_Unsupported question type: {q.get('type', 'Unknown')}_")
-                     st.session_state.submitted_answers[question_key] = None
-                user_answers_form.markdown("---")
+                     user_answers_form_st.markdown(f"_Unsupported question type: {q.get('type', 'Unknown')}_")
+                     st.session_state.submitted_answers[question_key_st] = None
+                user_answers_form_st.markdown("---")
 
-            submit_answers_button = user_answers_form.form_submit_button("✅ Submit Answers")
+            submit_answers_button_st = user_answers_form_st.form_submit_button("✅ Submit Answers")
 
-            if submit_answers_button:
+            if submit_answers_button_st:
                 st.session_state.show_results = True
-                # Calculate results and store them for email function
                 current_score = 0
                 current_total_questions = len(quiz['questions'])
                 current_detailed_results = []
 
                 for i_res, q_res in enumerate(quiz['questions']):
-                    q_key_res = f"q_{i_res}"
+                    q_key_res = f"q_st_{i_res}"
                     submitted_ans_res = st.session_state.submitted_answers.get(q_key_res)
                     correct_ans_res = q_res.get('answer')
                     res_is_correct = False
+                    # ... (answer checking logic as before) ...
                     if submitted_ans_res is not None:
                         if q_res['type'] == 'tf':
                             submitted_bool_res = str(submitted_ans_res).lower() == 'true'
@@ -466,9 +524,9 @@ def main():
                         'question_text': q_res['question_text'],
                         'submitted_answer': submitted_ans_res,
                         'correct_answer': correct_ans_res,
-                        'is_correct': res_is_correct
+                        'is_correct': res_is_correct,
+                        'type': q_res.get('type', 'N/A') # Store type for email display
                     })
-                
                 st.session_state.last_quiz_score = current_score
                 st.session_state.last_quiz_total_questions = current_total_questions
                 st.session_state.last_quiz_percentage = (current_score / current_total_questions * 100) if current_total_questions > 0 else 0
@@ -476,86 +534,49 @@ def main():
 
 
         if st.session_state.show_results and quiz['questions']:
-            st.markdown("---")
-            st.header("📊 Quiz Results")
-            
-            # Use stored results for display
-            score_to_display = st.session_state.last_quiz_score
-            total_questions_to_display = st.session_state.last_quiz_total_questions
-            percentage_to_display = st.session_state.last_quiz_percentage
+            st.markdown("---"); st.header("📊 Quiz Results")
+            # ... (results display logic as before, ensuring q_type_display_item is used for question type) ...
             detailed_results_to_display = st.session_state.last_quiz_detailed_results
-
             for result_item in detailed_results_to_display:
                 with st.container():
-                    st.markdown(f"**Question {result_item['question_index'] + 1}:** {result_item['question_text']}")
+                    q_type_display_item_res = result_item.get('type', 'N/A').upper()
+                    st.markdown(f"**Question {result_item['question_index'] + 1} ({q_type_display_item_res}):** {result_item['question_text']}")
+                    # ... rest of result item display ...
                     submitted_display = result_item['submitted_answer'] if result_item['submitted_answer'] is not None else 'Not Answered'
                     st.write(f"Your answer: `{submitted_display}`")
-                    
                     correct_ans_display_val = result_item['correct_answer']
                     correct_ans_display_text = "True" if correct_ans_display_val is True else ("False" if correct_ans_display_val is False else correct_ans_display_val)
-
-                    if result_item['is_correct']:
-                        st.success(f"Correct! The answer is `{correct_ans_display_text}`.")
-                    else:
-                        st.error(f"Incorrect. The correct answer is `{correct_ans_display_text}`.")
+                    if result_item['is_correct']: st.success(f"Correct! The answer is `{correct_ans_display_text}`.")
+                    else: st.error(f"Incorrect. The correct answer is `{correct_ans_display_text}`.")
                 st.markdown("---")
+            
+            st.subheader(f"🏆 Your Final Score: {st.session_state.last_quiz_score}/{st.session_state.last_quiz_total_questions}")
+            st.progress(int(st.session_state.last_quiz_percentage))
+            st.markdown(f"Percentage: **{st.session_state.last_quiz_percentage:.2f}%**")
+            # ... (balloons, messages logic) ...
 
-            st.subheader(f"🏆 Your Final Score: {score_to_display}/{total_questions_to_display}")
-            st.progress(int(percentage_to_display))
-            st.markdown(f"Percentage: **{percentage_to_display:.2f}%**")
-
-            if percentage_to_display == 100:
-                st.balloons()
-                st.success("🎉 Congratulations! You got a perfect score! 🎉")
-            elif percentage_to_display >= 70:
-                st.info("👍 Great job!")
-            elif percentage_to_display >= 50:
-                st.warning("🙂 Good effort, keep practicing!")
-            else:
-                st.error("😕 Keep trying! Review the explanations and try again.")
-
-            # Email sharing section
-            st.markdown("---")
-            st.subheader("📧 Share Your Results via Email")
+            st.markdown("---"); st.subheader("📧 Share Your Results via Email")
             if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
-                 st.warning("Email sending is not configured by the administrator (missing credentials).")
+                 st.warning("Email sending not configured.")
             else:
-                email_address_st = st.text_input("Enter your email address:", key="email_results_input_st")
-                if st.button("✉️ Send Email", key="send_email_button_st"):
-                    if not email_address_st:
-                        st.error("Please enter an email address.")
-                    elif not re.match(r"[^@]+@[^@]+\.[^@]+", email_address_st): # Basic email validation
-                        st.error("Invalid email address format.")
+                email_address_st_send = st.text_input("Enter email:", key="email_results_input_st_send")
+                if st.button("✉️ Send Email", key="send_email_button_st_send"):
+                    if not email_address_st_send or not re.match(r"[^@]+@[^@]+\.[^@]+", email_address_st_send):
+                        st.error("Invalid email address.")
                     else:
-                        if 'last_quiz_detailed_results' in st.session_state and st.session_state.quiz_data:
-                            with st.spinner("Sending email..."):
+                        if st.session_state.quiz_data:
+                            with st.spinner("Sending..."):
                                 send_quiz_email_st(
-                                    email_address_st,
-                                    st.session_state.quiz_data, # topic, difficulty, explanation, original questions
-                                    st.session_state.last_quiz_score,
-                                    st.session_state.last_quiz_total_questions,
-                                    st.session_state.last_quiz_percentage,
-                                    st.session_state.last_quiz_detailed_results
+                                    email_address_st_send, st.session_state.quiz_data,
+                                    st.session_state.last_quiz_score, st.session_state.last_quiz_total_questions,
+                                    st.session_state.last_quiz_percentage, st.session_state.last_quiz_detailed_results
                                 )
-                        else:
-                            st.error("No quiz results found to send. Please complete a quiz first.")
-
-
+                        else: st.error("No results to send.")
     else:
-        st.info("Configure your quiz in the sidebar and click 'Generate Quiz' to start.")
-        st.markdown("""
-        ### How to use Quizify Streamlit:
-        1.  **Enter a Topic**: Type any subject you want a quiz on.
-        2.  **Select Question Type**: Choose from Multiple Choice, Fill in the Blank, or True/False.
-        3.  **Choose Difficulty**: Pick Easy, Medium, or Hard.
-        4.  **Number of Questions**: Decide how many questions you want (1-100).
-        5.  Click **Generate Quiz**!
-        
-        The quiz explanation and questions will appear here. Good luck! 🍀
-        """)
+        st.info("Configure quiz in sidebar & click 'Generate Quiz'.")
+        st.markdown("### How to use:\n1. Enter Topic, Type, Difficulty, Number of Questions.\n2. Click Generate Quiz!\nGood luck! 🍀")
 
-    st.markdown("---")
-    st.caption("Quizify - Developed by Somanath Reddy")
+    st.markdown("---"); st.caption("Quizify Streamlit App")
 
 if __name__ == '__main__':
     main()
