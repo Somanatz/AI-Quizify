@@ -23,28 +23,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const sendEmailBtn = document.getElementById('send-email-btn');
     const emailStatusMessageEl = document.getElementById('email-status-message');
 
-    let currentQuestionIndex = 0; // Track the currently displayed question
-    let allQuestions = []; // Store all question card elements
-    let answers = {}; // Store user answers as they progress
-    let isFocusMode = false; // State variable for focus mode
-    let currentAttemptId = null; // To store the attempt ID for sending email
+    // --- Mixed Question Type UI Elements ---
+    const questionTypeSelect = document.getElementById('question_type');
+    const mixedTypeOptionsDiv = document.getElementById('mixed-type-options');
+    const singleTypeNumQuestionsDiv = document.getElementById('single-type-num-questions-container');
+    const numMcqInput = document.getElementById('num_mcq');
+    const numFillInput = document.getElementById('num_fill');
+    const numTfInput = document.getElementById('num_tf');
+    const mixedTotalCountSpan = document.getElementById('mixed-total-count');
+    const numQuestionsInput = document.getElementById('num_questions'); // General num_questions
+
+    let currentQuestionIndex = 0; 
+    let allQuestions = []; 
+    let answers = {}; 
+    let isFocusMode = false; 
+    let currentAttemptId = null; 
 
     // --- Focus Mode Logic ---
     function enableFocusMode() {
         if (!isFocusMode) {
             isFocusMode = true;
             body.classList.add('focus-mode-active');
-            // Use the entire document for mousemove events to track cursor everywhere
             document.addEventListener('mousemove', moveFocusCursor);
             if (focusModeButton) {
-                focusModeButton.classList.add('active'); // Update button style
+                focusModeButton.classList.add('active'); 
                 focusModeButton.title = 'Focus Mode Active (Double-click anywhere to disable)';
             }
-             // Ensure cursor is visible immediately and positioned correctly
              if (focusCursor) {
                  focusCursor.style.opacity = '1';
-                 // Initial positioning might be off, but will correct on first move
-                 // Could potentially set initial position based on click event if needed
              }
             console.log("Focus Mode Enabled");
         }
@@ -56,11 +62,11 @@ document.addEventListener('DOMContentLoaded', function() {
             body.classList.remove('focus-mode-active');
             document.removeEventListener('mousemove', moveFocusCursor);
             if (focusModeButton) {
-                focusModeButton.classList.remove('active'); // Update button style
+                focusModeButton.classList.remove('active'); 
                 focusModeButton.title = 'Toggle Focus Mode (Double-click anywhere to enable)';
             }
             if (focusCursor) {
-                focusCursor.style.opacity = '0'; // Ensure it hides fully
+                focusCursor.style.opacity = '0'; 
             }
             console.log("Focus Mode Disabled");
         }
@@ -68,19 +74,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function moveFocusCursor(e) {
         if (isFocusMode && focusCursor) {
-            // Use pageX/pageY which are relative to the whole document, including scrolled area
-            // Ensure the cursor follows precisely even when the page is scrolled
             const x = e.pageX;
             const y = e.pageY;
             focusCursor.style.left = `${x}px`;
             focusCursor.style.top = `${y}px`;
-            focusCursor.style.opacity = '1'; // Make sure it's visible while moving
+            focusCursor.style.opacity = '1'; 
         }
     }
 
-    // Toggle focus mode on double-click (body)
     body.addEventListener('dblclick', (e) => {
-        // Prevent toggling if the double-click was on the toggle button itself
         if (focusModeButton && focusModeButton.contains(e.target)) {
             return;
         }
@@ -88,7 +90,6 @@ document.addEventListener('DOMContentLoaded', function() {
             disableFocusMode();
         } else {
             enableFocusMode();
-            // Optionally, immediately move cursor to double-click location
             if (focusCursor) {
                  focusCursor.style.left = `${e.pageX}px`;
                  focusCursor.style.top = `${e.pageY}px`;
@@ -97,10 +98,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Toggle focus mode with the button click
     if (focusModeButton) {
         focusModeButton.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent body double-click from firing immediately
+            e.stopPropagation(); 
             if (isFocusMode) {
                 disableFocusMode();
             } else {
@@ -109,37 +109,69 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- Mixed Question Type UI Logic ---
+    function updateTotalMixedQuestionsCount() {
+        if (!numMcqInput || !numFillInput || !numTfInput || !mixedTotalCountSpan) return;
+        const mcqCount = parseInt(numMcqInput.value) || 0;
+        const fillCount = parseInt(numFillInput.value) || 0;
+        const tfCount = parseInt(numTfInput.value) || 0;
+        mixedTotalCountSpan.textContent = mcqCount + fillCount + tfCount;
+    }
+
+    if (questionTypeSelect) {
+        questionTypeSelect.addEventListener('change', function() {
+            if (this.value === 'mixed') {
+                mixedTypeOptionsDiv.style.display = 'block';
+                singleTypeNumQuestionsDiv.style.display = 'none';
+                if (numQuestionsInput) numQuestionsInput.required = false; // Make general not required
+                if (numMcqInput) numMcqInput.required = true; // At least one of mixed should be specified, handled by backend validation (sum > 0)
+                if (numFillInput) numFillInput.required = true;
+                if (numTfInput) numTfInput.required = true;
+                updateTotalMixedQuestionsCount();
+            } else {
+                mixedTypeOptionsDiv.style.display = 'none';
+                singleTypeNumQuestionsDiv.style.display = 'block';
+                if (numQuestionsInput) numQuestionsInput.required = true;
+                if (numMcqInput) numMcqInput.required = false;
+                if (numFillInput) numFillInput.required = false;
+                if (numTfInput) numTfInput.required = false;
+            }
+        });
+        // Trigger change on load to set initial state if 'mixed' is pre-selected
+        if (questionTypeSelect.value === 'mixed') {
+             questionTypeSelect.dispatchEvent(new Event('change'));
+        }
+    }
+    if (mixedTypeOptionsDiv && (numMcqInput && numFillInput && numTfInput)) {
+        [numMcqInput, numFillInput, numTfInput].forEach(input => {
+            input.addEventListener('input', updateTotalMixedQuestionsCount);
+        });
+        updateTotalMixedQuestionsCount(); // Initial call
+    }
+
 
     // --- Quiz Generation & Display Logic ---
     if (generationForm) {
         generationForm.addEventListener('submit', function(event) {
-            // Optional: Add a loading indicator
             const generateBtn = generationForm.querySelector('button[type="submit"]');
             if (generateBtn) {
                 generateBtn.disabled = true;
-                // Using Bootstrap spinner classes
                 generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
             }
-             // Hide previous results smoothly if any
              hideElementSmoothly(scoreContainer);
              hideElementSmoothly(quizContainer);
-             // Add animations to generation form card on submit maybe?
              const formCard = generationForm.closest('.card');
-             formCard?.classList.add('animate__animated', 'animate__pulse'); // Example animation
+             formCard?.classList.add('animate__animated', 'animate__pulse'); 
         });
     }
 
-     // --- Function to show an element smoothly ---
-     function showElementSmoothly(element, animationClass = 'animate__fadeInUp') { // Added animation parameter
+     function showElementSmoothly(element, animationClass = 'animate__fadeInUp') { 
         if (element) {
-             // Reset animation classes before showing
              element.className = element.className.replace(/animate__\S+/g, '').trim();
-
-             // Check if already visible or has the class to prevent re-triggering animation
              if (element.style.display !== 'none' && !element.classList.contains('visible')) {
-                element.style.display = 'block'; // Or 'flex', 'grid' depending on layout needs
+                element.style.display = 'block'; 
                 setTimeout(() => {
-                    element.classList.add('visible', 'animate__animated', animationClass); // Add visibility and animation classes
+                    element.classList.add('visible', 'animate__animated', animationClass); 
                 }, 10);
              } else if (element.style.display === 'none'){
                  element.style.display = 'block';
@@ -150,57 +182,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- Function to hide an element smoothly ---
-    function hideElementSmoothly(element, animationClass = 'animate__fadeOutDown') { // Added animation parameter
+    function hideElementSmoothly(element, animationClass = 'animate__fadeOutDown') { 
         if (element && element.classList.contains('visible')) {
-            // Apply exit animation
-             element.className = element.className.replace(/animate__\S+/g, '').trim(); // Clear previous animations
+             element.className = element.className.replace(/animate__\S+/g, '').trim(); 
              element.classList.add('animate__animated', animationClass);
-
-            // Wait for animation to finish before setting display to none and removing classes
-            // Assumes animation duration is around 1s from Animate.css default
             setTimeout(() => {
-                // Check if it hasn't been made visible again in the meantime
-                if (!element.classList.contains('visible') || !element.matches(':hover')) { // Check visibility and hover state
+                if (!element.classList.contains('visible') || !element.matches(':hover')) { 
                     element.style.display = 'none';
                     element.classList.remove('visible', 'animate__animated', animationClass);
                 }
-            }, 1000); // Match common Animate.css duration
-
-            element.classList.remove('visible'); // Remove visible class immediately for state tracking
-
+            }, 1000); 
+            element.classList.remove('visible'); 
         } else if (element && element.style.display !== 'none') {
-             // If it was visible but didn't have the class, hide directly
              element.style.display = 'none';
         }
     }
 
-
-    // After quiz generation (when the page reloads with quiz_result)
     if (quizForm) {
         allQuestions = quizForm.querySelectorAll('.question-card');
         setupQuestionNavigation();
-        // Initially show the quiz container smoothly with animation
-        // Choose different animations for quiz/score containers
         showElementSmoothly(quizContainer, 'animate__zoomInUp');
-        adjustQuizFormHeight(); // Set initial height after it's visible
+        adjustQuizFormHeight(); 
     }
 
-    // --- Function to Set Up Navigation Buttons (Next/Submit) ---
     function setupQuestionNavigation() {
         allQuestions.forEach((card, index) => {
             const nextBtn = card.querySelector('.btn-next');
             const submitBtn = card.querySelector('.btn-submit-quiz');
-            const questionIndex = parseInt(card.dataset.questionIndex); // Get index from data attribute
+            const questionIndex = parseInt(card.dataset.questionIndex); 
 
-            // Add animations to buttons on hover maybe?
             [nextBtn, submitBtn].forEach(btn => {
                 if (btn) {
                     btn.addEventListener('mouseenter', () => btn.classList.add('animate__animated', 'animate__pulse'));
                     btn.addEventListener('animationend', () => btn.classList.remove('animate__animated', 'animate__pulse'));
                 }
             });
-
 
             if (nextBtn) {
                 nextBtn.addEventListener('click', () => {
@@ -220,7 +236,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- Function to Validate the Current Question's Answer and Store It ---
     function validateAndStoreAnswer(card, questionIndex) {
         const questionKey = `q${questionIndex + 1}`;
         const inputs = card.querySelectorAll(`[name="${questionKey}"]`);
@@ -228,13 +243,11 @@ document.addEventListener('DOMContentLoaded', function() {
         let currentAnswer = null;
         let answered = false;
 
-        // Clear previous validation state
         if (validationErrorEl) {
              validationErrorEl.style.display = 'none';
              validationErrorEl.classList.remove('animate__animated', 'animate__shakeX');
         }
         card.classList.remove('unanswered');
-
 
         if (inputs.length > 0) {
             const inputType = inputs[0].type;
@@ -244,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentAnswer = checkedOption.value;
                     answered = true;
                 }
-            } else if (inputType === 'text') { // Assumes 'fill' uses type="text"
+            } else if (inputType === 'text') { 
                 const textInput = inputs[0];
                 if (textInput.value.trim() !== '') {
                     currentAnswer = textInput.value.trim();
@@ -256,21 +269,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!answered) {
             if (validationErrorEl) {
                 validationErrorEl.textContent = 'Please select or enter an answer before proceeding.';
-                validationErrorEl.style.display = 'block'; // Show validation error
-                validationErrorEl.classList.add('animate__animated', 'animate__shakeX'); // Add shake animation
+                validationErrorEl.style.display = 'block'; 
+                validationErrorEl.classList.add('animate__animated', 'animate__shakeX'); 
             }
-             card.classList.add('unanswered'); // Highlight if unanswered
+             card.classList.add('unanswered'); 
              validationErrorEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return false; // Validation failed
+            return false; 
         }
 
-        answers[questionKey] = currentAnswer; // Store the valid answer
+        answers[questionKey] = currentAnswer; 
         console.log(`Stored answer for ${questionKey}:`, currentAnswer);
-        return true; // Validation passed
+        return true; 
     }
 
-
-    // --- Function to Show the Next Question ---
     function showNextQuestion(currentIndex) {
         const currentCard = allQuestions[currentIndex];
         const nextIndex = currentIndex + 1;
@@ -278,73 +289,56 @@ document.addEventListener('DOMContentLoaded', function() {
         if (nextIndex < allQuestions.length) {
             const nextCard = allQuestions[nextIndex];
 
-            // Add 'exiting' class to current card for CSS transition out
             currentCard.classList.add('exiting');
             currentCard.classList.remove('active');
 
-             // Make the next card active to trigger CSS transition in
-             nextCard.style.visibility = 'visible'; // Ensure it's visible before adding active
+             nextCard.style.visibility = 'visible'; 
              nextCard.style.display = 'block';
-             setTimeout(() => { // Use timeout to ensure styles apply for transition
+             setTimeout(() => { 
                 nextCard.classList.add('active');
                 currentQuestionIndex = nextIndex;
-                adjustQuizFormHeight(); // Adjust height for the new card
+                adjustQuizFormHeight(); 
 
-                // Optionally add entry animation to the new card content
-                 const content = nextCard.querySelector('.card-body') || nextCard; // Target inner content if exists
+                 const content = nextCard.querySelector('.card-body') || nextCard; 
                  content?.classList.add('animate__animated', 'animate__fadeInRight');
                  content?.addEventListener('animationend', () => content.classList.remove('animate__animated', 'animate__fadeInRight'), { once: true });
-
-            }, 50); // Small delay for transition
-
-
+            }, 50); 
         }
-         // If it's the last question, the submit button handles the final action
     }
 
-     // --- Function to Dynamically Adjust Quiz Form Height ---
      function adjustQuizFormHeight() {
          if (!quizForm || allQuestions.length === 0) return;
 
          const activeCard = quizForm.querySelector('.question-card.active');
          if (activeCard) {
              const cardHeight = activeCard.offsetHeight;
-             // Add some padding/buffer to the height
-             const targetHeight = cardHeight + 40; // Increased buffer slightly
+             const targetHeight = cardHeight + 40; 
              quizForm.style.minHeight = `${targetHeight}px`;
          } else if (allQuestions.length > 0 && allQuestions[0]) {
-             // Fallback: If no active card (e.g., initial load), use the first card
              const firstCardHeight = allQuestions[0].offsetHeight;
               const targetHeight = firstCardHeight + 40;
              quizForm.style.minHeight = `${targetHeight}px`;
          }
      }
-     // Adjust height on window resize as well
      window.addEventListener('resize', adjustQuizFormHeight);
 
-
-    // --- Function to Handle Final Quiz Submission ---
     function submitQuiz() {
         console.log("Submitting quiz with answers:", answers);
         if (submissionErrorEl) {
-            submissionErrorEl.style.display = 'none'; // Hide previous errors
+            submissionErrorEl.style.display = 'none'; 
             submissionErrorEl.textContent = '';
              submissionErrorEl.classList.remove('animate__animated', 'animate__shakeX');
         }
 
-
-        // Disable the submit button on the last card during processing
         let submitBtn = null;
         if (allQuestions.length > 0) {
              const lastCard = allQuestions[allQuestions.length - 1];
              submitBtn = lastCard.querySelector('.btn-submit-quiz');
              if (submitBtn) {
                 submitBtn.disabled = true;
-                // Use innerHTML for spinner
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Checking...';
              }
         }
-
 
         const quizId = quizForm.dataset.quizId;
         if (!quizId) {
@@ -356,13 +350,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Prepare data for sending
         const dataToSend = {
             quiz_id: quizId,
-            answers: answers, // Send all collected answers
+            answers: answers, 
         };
 
-        // Send data using Fetch API
         fetch(CHECK_ANSWERS_URL, {
             method: 'POST',
             headers: {
@@ -379,20 +371,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                 });
             }
-            return response.json(); // Parse successful response
+            return response.json(); 
         })
         .then(data => {
             console.log("Received check_answers data:", data);
             if (data.error) {
                 displaySubmissionError(`Submission Error: ${data.error}`);
             } else {
-                currentAttemptId = data.attempt_id; // Store attempt ID for email
-                // Hide the quiz form container smoothly after successful submission
-                hideElementSmoothly(quizContainer, 'animate__zoomOut'); // Different exit animation
-                // Process and display feedback + final score with delay for exit animation
+                currentAttemptId = data.attempt_id; 
+                hideElementSmoothly(quizContainer, 'animate__zoomOut'); 
                 setTimeout(() => {
                      displayFeedbackAndResults(data);
-                }, 500); // Delay display of results
+                }, 500); 
             }
         })
         .catch(error => {
@@ -400,7 +390,6 @@ document.addEventListener('DOMContentLoaded', function() {
             displaySubmissionError(`An error occurred: ${error.message}. Please check your connection and try again.`);
         })
         .finally(() => {
-             // Re-enable submit button only if there was an error
              if (submitBtn && submitBtn.disabled) {
                  if (submissionErrorEl && submissionErrorEl.style.display !== 'none') {
                     submitBtn.disabled = false;
@@ -410,48 +399,33 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-
-    // --- Function to Display Feedback on Questions and Final Score/Results ---
     function displayFeedbackAndResults(data) {
-        // 1. Quiz Container is already hidden in submitQuiz success logic
+        showElementSmoothly(scoreContainer, 'animate__bounceInUp'); 
 
-        // 2. Show the final score container smoothly with animation
-        showElementSmoothly(scoreContainer, 'animate__bounceInUp'); // Different entry animation for results
-
-
-        // 3. Populate score summary
         if (finalScoreEl) finalScoreEl.textContent = data.score;
         if (totalQuestionsEl) totalQuestionsEl.textContent = data.total_questions;
         if (scorePercentageEl) scorePercentageEl.textContent = data.percentage;
         if (resultsTopicEl) resultsTopicEl.textContent = data.topic || 'N/A';
         if (resultsDifficultyEl) resultsDifficultyEl.textContent = data.difficulty || 'N/A';
 
-        // 4. Populate detailed results list
         populateDetailedResultsList(data.results);
-
-        // 5. Scroll to the score section smoothly (optional)
         scoreContainer?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        // 6. Hide any lingering submission errors
         if (submissionErrorEl) submissionErrorEl.style.display = 'none';
     }
 
-    // --- Function to Populate the Detailed Results List (at the bottom) ---
     function populateDetailedResultsList(resultsData) {
         const resultItemTemplate = document.getElementById('result-item-template');
         if (!detailedResultsContainer || !resultItemTemplate) {
             console.error("Detailed results container or template not found.");
-            return; // Exit if elements don't exist
+            return; 
         }
 
-        detailedResultsContainer.innerHTML = ''; // Clear previous results
+        detailedResultsContainer.innerHTML = ''; 
 
         if (resultsData && resultsData.length > 0) {
-            resultsData.forEach((result, index) => { // Add index for animation delay
+            resultsData.forEach((result, index) => { 
                 const templateContent = resultItemTemplate.content.cloneNode(true);
                 const resultCard = templateContent.querySelector('.result-item');
-
-                 // Get elements within the cloned template content
                  const qNumberEl = templateContent.querySelector('.result-q-number');
                  const qTextEl = templateContent.querySelector('.result-q-text');
                  const submittedEl = templateContent.querySelector('.result-submitted');
@@ -477,13 +451,6 @@ document.addEventListener('DOMContentLoaded', function() {
                          resultCard.classList.add('incorrect');
                     }
                 }
-
-                // Apply staggered animation delay (using CSS for this now)
-                 // if (resultCard) {
-                 //    resultCard.style.animationDelay = `${index * 0.1}s`;
-                 // }
-
-
                 detailedResultsContainer.appendChild(templateContent);
             });
         } else {
@@ -491,41 +458,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-
-     // --- Function to Display Submission Errors (General errors during fetch) ---
      function displaySubmissionError(message) {
          if (submissionErrorEl) {
             submissionErrorEl.textContent = message;
             submissionErrorEl.style.display = 'block';
-            submissionErrorEl.classList.remove('animate__animated', 'animate__shakeX'); // Remove first if exists
-            setTimeout(() => { // Add after slight delay
+            submissionErrorEl.classList.remove('animate__animated', 'animate__shakeX'); 
+            setTimeout(() => { 
                  submissionErrorEl.classList.add('animate__animated', 'animate__shakeX');
             }, 10);
-             // Scroll to the error message if it's potentially off-screen
             submissionErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
          }
      }
 
-     // --- Try Again Button ---
      if(tryAgainBtn) {
-         // Add hover animation
          tryAgainBtn.addEventListener('mouseenter', () => tryAgainBtn.classList.add('animate__animated', 'animate__headShake'));
          tryAgainBtn.addEventListener('animationend', () => tryAgainBtn.classList.remove('animate__animated', 'animate__headShake'));
-
          tryAgainBtn.addEventListener('click', () => {
-              // Smoothly hide the score container before redirecting
               hideElementSmoothly(scoreContainer, 'animate__fadeOutRight');
-              // Redirect after a delay to allow transition
               setTimeout(() => {
-                 window.location.href = GENERATE_URL; // Use the URL provided by the template
-              }, 800); // Delay slightly less than hide transition
+                 window.location.href = GENERATE_URL; 
+              }, 800); 
          });
      }
 
-     // --- Email Quiz Form Handling ---
-     if (sendEmailBtn && emailAddressInput) {
+     if (emailQuizForm && sendEmailBtn && emailAddressInput && emailStatusMessageEl) {
         emailQuizForm.addEventListener('submit', function(event) {
-            event.preventDefault(); // Prevent default form submission
+            event.preventDefault(); 
 
             const email = emailAddressInput.value.trim();
             if (!email) {
@@ -537,11 +495,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Disable button and show spinner
             sendEmailBtn.disabled = true;
             sendEmailBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sending...';
             displayEmailStatus("Sending email...", "info", false);
-
 
             const dataToSend = {
                 email_address: email,
@@ -558,10 +514,9 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => {
                 if (!response.ok) {
-                    // Try to parse JSON error from server, otherwise use statusText
                     return response.json().then(errData => {
                         throw new Error(errData.error || `Server Error: ${response.statusText}`);
-                    }).catch(() => { // If parsing error JSON fails
+                    }).catch(() => { 
                         throw new Error(`HTTP error! Status: ${response.status}`);
                     });
                 }
@@ -570,9 +525,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     displayEmailStatus(data.message || "Email sent successfully!", "success");
-                    emailAddressInput.value = ''; // Clear input on success
+                    emailAddressInput.value = ''; 
                 } else {
-                    // This case might be less common if !response.ok handles most errors
                     displayEmailStatus(data.error || "Failed to send email.", "error");
                 }
             })
@@ -581,7 +535,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 displayEmailStatus(`An error occurred: ${error.message}`, "error");
             })
             .finally(() => {
-                // Re-enable button
                 sendEmailBtn.disabled = false;
                 sendEmailBtn.textContent = 'Send Email';
             });
@@ -591,17 +544,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayEmailStatus(message, type = "info", autoHide = true) {
         if (!emailStatusMessageEl) return;
         emailStatusMessageEl.textContent = message;
-        emailStatusMessageEl.className = 'form-text mt-2'; // Reset classes, add margin top
+        emailStatusMessageEl.className = 'form-text mt-2'; 
         if (type === "success") {
             emailStatusMessageEl.classList.add('text-success');
         } else if (type === "error") {
             emailStatusMessageEl.classList.add('text-danger');
-        } else { // info
+        } else { 
             emailStatusMessageEl.classList.add('text-muted');
         }
         emailStatusMessageEl.style.display = 'block';
 
-        // Clear previous timeout if one exists
         if (emailStatusMessageEl.timeoutId) {
             clearTimeout(emailStatusMessageEl.timeoutId);
         }
@@ -609,15 +561,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (autoHide) {
             emailStatusMessageEl.timeoutId = setTimeout(() => {
                 hideElementSmoothly(emailStatusMessageEl, 'animate__fadeOut');
-                // emailStatusMessageEl.style.display = 'none';
-            }, 5000); // Hide after 5 seconds
+            }, 5000); 
         }
     }
 
-
-     // --- Add initial animations to elements present on load ---
      const initialFormCard = document.querySelector('.form-section .card');
-     const initialPlaceholder = document.querySelector('.placeholder .card'); // If placeholder exists
+     const initialPlaceholder = document.querySelector('.placeholder .card'); 
 
      if (initialFormCard) {
          initialFormCard.classList.add('animate__animated', 'animate__zoomIn');
@@ -625,5 +574,6 @@ document.addEventListener('DOMContentLoaded', function() {
      if (initialPlaceholder) {
           initialPlaceholder.classList.add('animate__animated', 'animate__fadeIn');
      }
-
 });
+
+    
